@@ -62,9 +62,9 @@ fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, nod
   match node {
     Node::Empty => {},
     Node::Text { text } => ui.text(text),
-    Node::Button { text, action } => {
-      if ui.button(&ImString::from(text.clone()), [50., 30.]) {
-        task::block_on(network_session.action(&action))
+    Node::Button { text, on_click } => {
+      if ui.button(&ImString::from(text.clone()), [100., 30.]) {
+        task::block_on(network_session.action(&on_click))
       }
     },
     Node::Container { children } => {

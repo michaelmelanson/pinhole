@@ -91,8 +91,8 @@ async fn session_loop(address: String, command_receiver: Receiver<NetworkSession
         command = command_receiver.recv().fuse() => {
           if let Some(command) = command {
             match command {
-              NetworkSessionCommand::Action(name) => {
-                send_request(&mut stream, Request::Action { name }).await?;
+              NetworkSessionCommand::Action(action) => {
+                send_request(&mut stream, Request::Action { action }).await?;
               },
               NetworkSessionCommand::Load(path) => {
                 current_path = Some(path.clone());

@@ -34,9 +34,21 @@ async fn connection_loop(mut stream: TcpStream) -> Result<()> {
 
     while let Some(ref request) = receive_request(&mut stream).await? {
         match request {
-            Request::Action { name } => {
-                println!("Action: {}", name);
-                send_response(&mut stream, Response::RedirectTo { path: "/two".to_string() }).await?;
+            Request::Action { action } => {
+                println!("Action: {}", action);
+                match action.as_str() {
+                    "clicked" => {
+                        send_response(&mut stream, Response::RedirectTo { path: "/two".to_string() }).await?;
+                    },
+
+                    "back" => {
+                        send_response(&mut stream, Response::RedirectTo { path: "/".to_string() }).await?;
+                    },
+
+                    _ => {
+                        println!("Unknown action: {}", action);
+                    }
+                }
             },
 
             Request::Load { path } => {
@@ -47,7 +59,7 @@ async fn connection_loop(mut stream: TcpStream) -> Result<()> {
                                 Node::Text { text: "Hello from pinhole!".to_string() }.boxed(),
                                 Node::Button { 
                                     text: "Click me".to_string(), 
-                                    action: "clicked".to_string() 
+                                    on_click: "clicked".to_string() 
                                 }.boxed(),
                             ]
                         }
@@ -58,7 +70,7 @@ async fn connection_loop(mut stream: TcpStream) -> Result<()> {
                                 Node::Text { text: "You clicked the button!".to_string() }.boxed(),
                                 Node::Button { 
                                     text: "Go back".to_string(), 
-                                    action: "back".to_string() 
+                                    on_click: "back".to_string() 
                                 }.boxed(),
                             ]
                         }

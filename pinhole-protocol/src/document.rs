@@ -1,9 +1,11 @@
 use serde::{Serialize, Deserialize};
 
+type Action = String;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Request {
   Load { path: String },
-  Action { name: String }
+  Action { action: Action }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -17,7 +19,7 @@ pub enum Node {
   Empty,
   Container { children: Vec<Box<Node>> },
   Text { text: String },
-  Button { text: String, action: String }
+  Button { text: String, on_click: Action }
 
 }
 
