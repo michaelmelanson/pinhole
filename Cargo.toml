@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  'pinhole-protocol', 
+  'pinhole-client', 
+  'pinhole-server'
+]
