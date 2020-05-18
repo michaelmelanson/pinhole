@@ -2,19 +2,23 @@ use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Request {
-  Load(String)
+  Load { path: String },
+  Action { name: String }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Response {
-  UpdateDocument(Document)
+  Render { document: Document },
+  RedirectTo { path: String }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Node {
   Empty,
-  Text(String),
-  Container(Vec<Box<Node>>)
+  Container { children: Vec<Box<Node>> },
+  Text { text: String },
+  Button { text: String, action: String }
+
 }
 
 impl Node {

@@ -1,6 +1,8 @@
+#![recursion_limit="1024"]
 mod network;
 mod system;
 
+use async_std::task;
 
 use imgui::*;
 
@@ -12,9 +14,9 @@ fn main() {
   let system = system::init("Pinhole");
 
   let mut network_session = NetworkSession::new("127.0.0.1:8080".to_string());
-  network_session.load("/".to_string());
+  task::block_on(network_session.load(&"/".to_string()));
 
-  let mut document = Document(Node::Text("Loading...".to_string()));
+  let mut document = Document(Node::Text { text: "Loading...".to_string() });
 
   system.main_loop(move |_, ui| {
 
@@ -45,7 +47,7 @@ fn main() {
       .no_decoration();
 
     if let Some(window) = window.begin(ui) {
-      render_node(ui, &document.0);
+      render_node(ui, &mut network_session, &document.0);
 
       window.end(ui);
     }
@@ -56,13 +58,18 @@ fn main() {
 }
 
 
-fn render_node<'a, 'b>(ui: &'a mut Ui, node: &'b Node) {
+fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, node: &'b Node) {
   match node {
     Node::Empty => {},
-    Node::Text(text) => ui.text(text),
-    Node::Container(children) => {
+    Node::Text { text } => ui.text(text),
+    Node::Button { text, action } => {
+      if ui.button(&ImString::from(text.clone()), [50., 30.]) {
+        task::block_on(network_session.action(&action))
+      }
+    },
+    Node::Container { children } => {
       for node in children {
-        render_node(ui, node);
+        render_node(ui, network_session, node);
       }
     }
   }

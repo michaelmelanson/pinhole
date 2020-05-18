@@ -34,18 +34,39 @@ async fn connection_loop(mut stream: TcpStream) -> Result<()> {
 
     while let Some(ref request) = receive_request(&mut stream).await? {
         match request {
-            Request::Load(path) => {
+            Request::Action { name } => {
+                println!("Action: {}", name);
+                send_response(&mut stream, Response::RedirectTo { path: "/two".to_string() }).await?;
+            },
+
+            Request::Load { path } => {
                 let document = match path.as_str() {
                     "/" => Document(
-                        Node::Container(vec![
-                            Node::Text("Hello from pinhole!".to_string()).boxed(),
-                            Node::Text("This text has been updated".to_string()).boxed(),
-                        ])
+                        Node::Container { 
+                            children: vec![
+                                Node::Text { text: "Hello from pinhole!".to_string() }.boxed(),
+                                Node::Button { 
+                                    text: "Click me".to_string(), 
+                                    action: "clicked".to_string() 
+                                }.boxed(),
+                            ]
+                        }
                     ),
-                    _ => Document(Node::Text("Route not found".to_string()))
+                    "/two" => Document(
+                        Node::Container { 
+                            children: vec![
+                                Node::Text { text: "You clicked the button!".to_string() }.boxed(),
+                                Node::Button { 
+                                    text: "Go back".to_string(), 
+                                    action: "back".to_string() 
+                                }.boxed(),
+                            ]
+                        }
+                    ),
+                    _ => Document(Node::Text { text: "Route not found".to_string() })
                 };
 
-                send_response(&mut stream, Response::UpdateDocument(document)).await?;
+                send_response(&mut stream, Response::Render { document }).await?;
             }
         }
     }
