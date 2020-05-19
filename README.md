@@ -38,7 +38,7 @@ On the list page you will see a couple todo items. You can click their checkboxe
 If you install Cargo Watch with `cargo install cargo-watch`, then you can start a hot reloading server like this:
 
 ```
-cargo watch -x 'run -p todomvc-server'
+cargo watch -x 'run -p pinhole-todomvc-example'
 ```
 
 Now you can leave that running in a terminal. It will watch for code changes, and recompile and restart your server as necessary.
