@@ -52,8 +52,9 @@ It's currently only partly done, but when completed:
 
 Pinhole's client uses [Dear Imgui](https://github.com/ocornut/imgui) for rendering its views. When the client receives a **`Render`** message, it updates its _current document_ and from then on renders that document on each frame.
 
-## Future plans
+## Future plans and open questions
 
-* Transport level security (TLS) to get HTTPS-like encryption and security.
+* Add Transport level security (TLS) to get HTTPS-like encryption and security.
 * Embed an extension language so servers can be written in e.g. Javascript?
 * Consider a different view layer? Dear Imgui is interesting but it's not as powerful as HTML / CSS.
+* How should storage be sent on page navigations? The server should be able to ask which keys it cares about, like for actions. But how should the client find out about this?
