@@ -12,7 +12,7 @@ You'll need a Rust development environment. See the [Getting Started instruction
 To run the TodoMVC server in a terminal:
 
 ```
-cargo run -p todomvc-server
+cargo run -p pinhole-todomvc-example
 ```
 
 Currently it's hardcoded to always listens on port 8080.
