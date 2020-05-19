@@ -8,8 +8,7 @@ const SUBMIT_ACTION: &str = "submit";
 impl Route for IndexRoute {
   fn path(&self) -> String { "/".to_string() }
 
-  async fn action<'a>(&self, action: &Action, context: &'a mut Context<'a>) -> Result<()> {
-
+  async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
     match action {
       Action { name, args: _ } if name == SUBMIT_ACTION => {
         log::info!("Submit with form state: {:?}", context.form_state);

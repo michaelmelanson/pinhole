@@ -13,7 +13,7 @@ const ID_KEY: &str = "id";
 impl Route for ListRoute {
   fn path(&self) -> String { "/todos".to_string() }
 
-  async fn action<'a>(&self, action: &Action, _context: &'a mut Context<'a>) -> Result<()> {
+  async fn action<'a>(&self, action: &Action, _context: &mut Context<'a>) -> Result<()> {
     match action {
       Action { name, args } if name == TODO_CHECKED => {
         log::info!("Task {:?} checked", args.get(ID_KEY));

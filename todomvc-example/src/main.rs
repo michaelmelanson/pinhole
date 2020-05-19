@@ -13,8 +13,8 @@ struct TodoApplication;
 impl Application for TodoApplication {
   fn routes(&self) -> Vec<Box<dyn Route>> {
     vec![
-      Box::new(crate::routes::IndexRoute),
-      Box::new(crate::routes::ListRoute)
+      Box::new(routes::IndexRoute),
+      Box::new(routes::ListRoute)
     ]
   }
 }
