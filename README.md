@@ -2,6 +2,10 @@
 
 The web is great, but it was designed around showing hyperlinked documents. What if the web technologies were designed a) with the benefit of hindsight, and b) primarily for applications instead of documents?
 
+## Status
+
+Set your expectations very low, and then move them lower. This is just a proof of concept.
+
 ## Usage
 
 You'll need a Rust development environment. See the [Getting Started instructions](https://www.rust-lang.org/learn/get-started) on Rust website for details about setting that up.
