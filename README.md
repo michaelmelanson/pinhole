@@ -52,9 +52,9 @@ It's currently only partly done, but when completed:
 
 Pinhole's client uses [Dear Imgui](https://github.com/ocornut/imgui) for rendering its views. When the client receives a **`Render`** message, it updates its _current document_ and from then on renders that document on each frame.
 
-## Future plans and open questions
+## Roadmap and future plans
 
-### Plans
+### Roadmap
 * Add Transport level security (TLS) to get HTTPS-like encryption and security.
 * Finish implementing the storage system.
 * Figure out how storage data should be sent on page navigations. The way it works for actions is great, and should work similarly for navigations where only the keys the server cares about should be sent. But how should the client find out about this?
