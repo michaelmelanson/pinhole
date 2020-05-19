@@ -2,5 +2,7 @@
 members = [
   'pinhole-protocol', 
   'pinhole-client', 
-  'pinhole-server'
+  'pinhole-framework',
+
+  'todomvc-example'
 ]

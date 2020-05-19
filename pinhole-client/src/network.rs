@@ -9,14 +9,14 @@ use async_std::{
 };
 use futures::{select, FutureExt};
 
-use pinhole_protocol::{network::{receive_response, send_request}, document::{Request, Document, Response}};
-use std::time::Duration;
+use pinhole_protocol::{network::{receive_response, send_request}, document::{Request, Document, Response, Action, Scope, FormState}};
+use std::{collections::HashMap, time::Duration};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 pub enum NetworkSessionCommand {
-  Action(String),
-  Load(String)
+  Action { action: Action, form_state: FormState },
+  Load { path: String }
 }
 
 pub enum NetworkSessionEvent {
@@ -41,14 +41,14 @@ impl NetworkSession {
     }
   }
 
-  pub async fn action(&mut self, name: &String) {
-    let name = name.clone();
-    self.command_sender.send(NetworkSessionCommand::Action(name)).await;
+  pub async fn action(&mut self, action: &Action, form_state: &FormState) {
+    let action = action.clone();
+    self.command_sender.send(NetworkSessionCommand::Action { action, form_state: form_state.clone() }).await;
   }
 
   pub async fn load(&mut self, path: &String) {
     let path = path.clone();
-    self.command_sender.send(NetworkSessionCommand::Load(path)).await;
+    self.command_sender.send(NetworkSessionCommand::Load { path }).await;
   }
 
   pub fn try_recv(&mut self) -> Option<NetworkSessionEvent> {
@@ -62,15 +62,18 @@ impl NetworkSession {
 }
 
 async fn session_loop(address: String, command_receiver: Receiver<NetworkSessionCommand>, event_sender: Sender<NetworkSessionEvent>) -> Result<()> {
-  let mut current_path = None;
+  let mut current_path: Option<String> = None;
+
+  let mut session_storage = HashMap::new();
+
 
   async fn connect(address: &String) -> Result<TcpStream> {
     loop {
-      println!("Trying to connect to {}", address);
+      log::debug!("Trying to connect to {}", address);
       match TcpStream::connect(&address).await {
         Ok(stream) => { return Ok(stream); },
         Err(err) => {
-          println!("Error trying to connect: {:?}", err);
+          log::warn!("Error trying to connect (will retry in 1s): {:?}", err);
           task::sleep(Duration::from_millis(1000)).await;
         }
       }
@@ -80,10 +83,11 @@ async fn session_loop(address: String, command_receiver: Receiver<NetworkSession
   'main: loop {
     let mut stream: TcpStream = connect(&address).await?;
     
-    println!("Connected to server");
-    
-    if let Some(current_path) = current_path.clone() {
-      send_request(&mut stream, Request::Load { path: current_path }).await?;
+    log::info!("Connected to server");
+
+    if let Some(path) = current_path.clone() {
+      let storage = session_storage.clone();
+      send_request(&mut stream, Request::Load { path, storage }).await?;
     }
 
     'connection: loop {
@@ -91,12 +95,14 @@ async fn session_loop(address: String, command_receiver: Receiver<NetworkSession
         command = command_receiver.recv().fuse() => {
           if let Some(command) = command {
             match command {
-              NetworkSessionCommand::Action(action) => {
-                send_request(&mut stream, Request::Action { action }).await?;
+              NetworkSessionCommand::Action { action, form_state } => {
+                let path = current_path.clone().expect("Can't fire actions without a path set");
+                send_request(&mut stream, Request::Action { path, action, form_state }).await?;
               },
-              NetworkSessionCommand::Load(path) => {
+              NetworkSessionCommand::Load { path } => {
                 current_path = Some(path.clone());
-                send_request(&mut stream, Request::Load { path }).await?;
+                let storage = session_storage.clone();
+                send_request(&mut stream, Request::Load { path, storage }).await?;
               }
             }
           } else {
@@ -113,11 +119,18 @@ async fn session_loop(address: String, command_receiver: Receiver<NetworkSession
               },
               Response::RedirectTo { path } => {
                 current_path = Some(path.clone());
-                send_request(&mut stream, Request::Load { path }).await?;
+                let storage = session_storage.clone();
+                send_request(&mut stream, Request::Load { path, storage }).await?;
+              }
+              Response::Store { scope, key, value } => {
+                match scope {
+                  Scope::Session => { session_storage.insert(key, value); },
+                  _ => todo!("scope {:?}", scope)
+                }
               }
             }
           } else {
-            println!("Received null response, terminating connection");
+            log::info!("Received null response, terminating connection");
             break 'connection;
           }
         }
