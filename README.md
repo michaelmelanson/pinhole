@@ -72,6 +72,8 @@ The messages are transported by length-prefixed [CBOR (Concise Binary Object Rep
 
 Some view components, such as buttons and input fields, have events for when they are clicked or modified. When these events occur, the client will send an **`Action`** message to the server.
 
+Actions are used in Pinhole whenever you would use a POST, PUT, PATCH, DELETE request in HTTP. URL navigations are used whenever you would use a GET request in HTTP.
+
 ### State management
 
 #### Connection state
