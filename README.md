@@ -40,7 +40,7 @@ The client keeps the following state locally about its connection:
 
 #### Storage
 
-The storage system is modelled after the Cookie system in HTTP, where keys are written by the server and stored on the client. But it's significantly improved to fix some of the problems with cookies, and to also capture the use cases for persistent cookies, session cookies, local storage, and form state.
+The storage system is modelled after the Cookie system in HTTP where keys are written by the server, stored on the client, and sent back to the server in requests. But it's significantly improved to fix some of the problems with cookies, and to also fill in the use cases for persistent cookies, session cookies, local storage, and form state.
 
 It's currently only partly done, but when completed:
 
