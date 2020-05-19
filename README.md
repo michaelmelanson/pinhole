@@ -2,15 +2,58 @@
 
 The web is great, but it was designed around showing hyperlinked documents. What if the web technologies were designed a) with the benefit of hindsight, and b) primarily for applications instead of documents?
 
+## Usage
+
+You'll need a Rust development environment. See the [Getting Started instructions](https://www.rust-lang.org/learn/get-started) on Rust website for details about setting that up.
+
+
+### Starting a server
+
+To run the TodoMVC server in a terminal:
+
+```
+cargo run -p todomvc-server
+```
+
+Currently it's hardcoded to always listens on port 8080.
+
+### Starting the client
+
+In a separate terminal, run the Pinhole Client:
+
+```
+cargo run -p pinhole-client
+```
+
+Currently it's hardcoded to connect to a server on `0.0.0.0:8080`, so it should now connect to your server.
+
+### What you'll see
+
+When the client connects, it will first show a login page. Entering an email and password then clicking Sign In will send you to a list page (authentication is faked, but you will see in the terminal that the server receives the information you enter). 
+
+On the list page you will see a couple todo items. You can click their checkboxes and an action will be sent to the server. It doesn't currently persist the changes.
+
+### Development environment
+
+If you install Cargo Watch with `cargo install cargo-watch`, then you can start a hot reloading server like this:
+
+```
+cargo watch -x 'run -p todomvc-server'
+```
+
+Now you can leave that running in a terminal. It will watch for code changes, and recompile and restart your server as necessary.
+
 ## Goal
 
-The goal is to explore what would happen if we started from scratch delivery platform designed around applications, taking the best parts of the Web.
+The goal is to explore what would happen if we took the best ideas out of the Web as a delivery platform, then started from scratch on a platform for delivering applications rather than documents.
 
 ## Design features
 
 ### Protocol
 
-Pinhole maintains a persistent TCP connection to allow for bidirectional messaging. The protocol is designed so that this connection can be terminated and reconnected at any time without losing state.
+Pinhole maintains a persistent TCP connection to allow for bidirectional messaging. It does not have a request-response cycle: instead, either the client or the server can message each other at any time. The server can, for example, send multiple view updates as loading progresses or in response to server-side events.
+
+The protocol is designed so that all state is maintained client-side so that this connection can be terminated and reconnected at any time with minimal user impact, and so that the server is compatible with load balancers without needing sticky sessions. 
 
 The messages are transported by length-prefixed [CBOR (Concise Binary Object Representation)](https://tools.ietf.org/html/rfc7049) datagrams. This was chosen because it has flexible, JSON-like semantics but it's compact and fast to generate parse.
 
