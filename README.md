@@ -16,7 +16,7 @@ You'll need a Rust development environment. See the [Getting Started instruction
 To run the TodoMVC server in a terminal:
 
 ```
-cargo run -p pinhole-todomvc-example
+cargo run --bin pinhole-todomvc-example
 ```
 
 Currently it's hardcoded to always listens on port 8080.
@@ -26,7 +26,7 @@ Currently it's hardcoded to always listens on port 8080.
 In a separate terminal, run the Pinhole Client:
 
 ```
-cargo run -p pinhole-client
+cargo run --bin pinhole-client
 ```
 
 Currently it's hardcoded to connect to a server on `0.0.0.0:8080`, so it should now connect to your server.
@@ -42,7 +42,7 @@ On the list page you will see a couple todo items. You can click their checkboxe
 If you install Cargo Watch with `cargo install cargo-watch`, then you can start a hot reloading server like this:
 
 ```
-cargo watch -x 'run -p pinhole-todomvc-example'
+cargo watch -x 'run --bin pinhole-todomvc-example'
 ```
 
 Now you can leave that running in a terminal. It will watch for code changes, and recompile and restart your server as necessary.
