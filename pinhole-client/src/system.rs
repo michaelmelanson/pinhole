@@ -81,14 +81,19 @@ impl System {
             mut renderer,
             ..
         } = self;
+
         let mut last_frame = Instant::now();
 
         event_loop.run(move |event, _, control_flow| match event {
-            Event::NewEvents(_) => last_frame = imgui.io_mut().update_delta_time(last_frame),
             Event::MainEventsCleared => {
+                let io = imgui.io_mut();
+                let now = Instant::now();
+                io.update_delta_time(now - last_frame);
+                last_frame = now;
+
                 let gl_window = display.gl_window();
                 platform
-                    .prepare_frame(imgui.io_mut(), &gl_window.window())
+                    .prepare_frame(io, &gl_window.window())
                     .expect("Failed to prepare frame");
                 gl_window.window().request_redraw();
             }

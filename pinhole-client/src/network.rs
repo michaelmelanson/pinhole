@@ -56,16 +56,18 @@ impl NetworkSession {
       return None;
     }
 
-    let event = task::block_on(self.event_receiver.recv());
-    event
+    let result = task::block_on(self.event_receiver.recv());
+
+    match result {
+      Ok(event) => Some(event),
+      Err(_) => None
+    }
   }
 }
 
 async fn session_loop(address: String, command_receiver: Receiver<NetworkSessionCommand>, event_sender: Sender<NetworkSessionEvent>) -> Result<()> {
   let mut current_path: Option<String> = None;
-
   let mut session_storage = HashMap::new();
-
 
   async fn connect(address: &String) -> Result<TcpStream> {
     loop {
@@ -93,7 +95,7 @@ async fn session_loop(address: String, command_receiver: Receiver<NetworkSession
     'connection: loop {
       select! {
         command = command_receiver.recv().fuse() => {
-          if let Some(command) = command {
+          if let Ok(command) = command {
             match command {
               NetworkSessionCommand::Action { action, form_state } => {
                 let path = current_path.clone().expect("Can't fire actions without a path set");

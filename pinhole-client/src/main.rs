@@ -1,4 +1,5 @@
 #![recursion_limit="1024"]
+mod form;
 mod network;
 mod system;
 
@@ -8,51 +9,11 @@ use async_std::task;
 
 use imgui::*;
 
+use form::{LocalFormState, LocalFormValue, convert_form_state};
 use network::{NetworkSessionEvent, NetworkSession};
-use pinhole_protocol::document::{Node, Document, FormValue as RemoteFormValue, FormState as RemoteFormState};
+use pinhole_protocol::document::{Node, Document};
 use std::collections::HashMap;
 
-
-enum LocalFormValue {
-  String(ImString),
-  Boolean(bool)
-}
-
-impl LocalFormValue {
-  fn boolean(&mut self) -> &mut bool {
-    match self {
-      LocalFormValue::Boolean(b) => b,
-      _ => {
-        *self = LocalFormValue::String(ImString::new(""));
-        self.boolean()
-      }
-    }
-  }
-
-  fn string(&mut self) -> &mut ImString {
-    match self {
-      LocalFormValue::String(s) => s,
-      _ => {
-        *self = LocalFormValue::String(ImString::new(""));
-        self.string()
-      }
-    }
-  }
-}
-
-type LocalFormState = HashMap<String, LocalFormValue>;
-fn convert_form_state(local_state: &LocalFormState) -> RemoteFormState {
-  let mut remote_state: RemoteFormState = HashMap::new();
-
-  for (key, value) in local_state {
-    remote_state.insert(key.clone(), match value {
-      LocalFormValue::String(s) => RemoteFormValue::String(s.to_string()),
-      LocalFormValue::Boolean(b) => RemoteFormValue::Boolean(*b)
-    });
-  }
-
-  remote_state
-}
 
 fn main() {
   femme::with_level(::log::LevelFilter::Debug);
@@ -122,7 +83,10 @@ fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, for
     Node::Checkbox { id, label, checked, on_change } => {
       let value = form_state.entry(id.clone()).or_insert(LocalFormValue::Boolean(*checked));
 
-      if ui.checkbox(&ImString::from(label.clone()), &mut value.boolean()) {
+      let mut input = value.boolean();
+      if ui.checkbox(&ImString::from(label.clone()), &mut input) {
+        *value = LocalFormValue::Boolean(input);
+        
         task::block_on(network_session.action(&on_change, &convert_form_state(form_state)));
       }
     },
@@ -138,7 +102,7 @@ fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, for
     },
 
     Node::Input { label, id, password} => {
-      let value = form_state.entry(id.clone()).or_insert(LocalFormValue::String(ImString::from("".to_string())));
+      let value = form_state.entry(id.clone()).or_insert(LocalFormValue::String("".to_string()));
       
       // imgui puts labels on the right side normally for whatever reason
       // this series of steps places it at the left.
@@ -149,12 +113,13 @@ fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, for
       // imgui uses the label to identify a field.
       // the '##' prefix acts like a comment -- the '##' and everything after
       // it is not shown but makes the label unique.
-      ui.input_text(&ImString::new(format!("##{}", id)), value.string())
+      let mut input = ImString::new(value.string());
+      ui.input_text(&ImString::new(format!("##{}", id)), &mut input)
         .resize_buffer(true)
         .password(*password)
         .auto_select_all(true)
         .build();
-
+      *value = LocalFormValue::String(input.to_string());
     }
   }
 }
