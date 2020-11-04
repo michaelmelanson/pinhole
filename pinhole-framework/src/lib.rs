@@ -20,7 +20,9 @@ use pinhole_protocol::{
 
 pub use application::Application;
 pub use context::Context;
-pub use pinhole_protocol::document::{Action, Document, Node, Response, Scope, TextProps, CheckboxProps, InputProps, ButtonProps};
+pub use pinhole_protocol::document::{
+    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, Response, Scope, TextProps,
+};
 pub use route::{Render, Route, Storage};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

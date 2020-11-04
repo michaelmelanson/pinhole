@@ -3,13 +3,16 @@ mod form;
 mod network;
 
 use async_std::task;
-use iced::{Application, Button, Checkbox, Column, Command, Length, Row, Settings, Space, Subscription, Text, TextInput, button::State as ButtonState, text_input::State as TextInputState};
+use iced::{
+    button::State as ButtonState, text_input::State as TextInputState, Application, Button,
+    Checkbox, Column, Command, Length, Row, Settings, Space, Subscription, Text, TextInput,
+};
 use kv_log_macro as log;
 
-use form::{LocalFormState, LocalFormValue, convert_form_state};
+use form::{convert_form_state, LocalFormState, LocalFormValue};
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
 use pinhole_protocol::document::{Action, ButtonProps, CheckboxProps, InputProps, Node, TextProps};
-use std::{sync::Arc, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 
 fn main() -> iced::Result {
     femme::with_level(::log::LevelFilter::Debug);
@@ -25,7 +28,11 @@ enum PinholeMessage {
     LoadStarted(()),
     NetworkSessionEvent(NetworkSessionEvent),
     PerformAction(Action),
-    FormValueChanged { id: String, value: LocalFormValue, action: Option<Action> },
+    FormValueChanged {
+        id: String,
+        value: LocalFormValue,
+        action: Option<Action>,
+    },
 }
 
 enum UiNode {
@@ -34,7 +41,7 @@ enum UiNode {
     Text(TextProps),
     Button(ButtonProps, ButtonState),
     Checkbox(CheckboxProps),
-    Input(InputProps, TextInputState)
+    Input(InputProps, TextInputState),
 }
 
 impl From<Node> for UiNode {
@@ -47,11 +54,11 @@ impl From<Node> for UiNode {
                     nodes.push(Box::new(UiNode::from(*node)));
                 }
                 Self::Container(nodes)
-            },
+            }
             Node::Text(props) => UiNode::Text(props),
             Node::Button(props) => UiNode::Button(props, ButtonState::new()),
             Node::Checkbox(props) => UiNode::Checkbox(props),
-            Node::Input(props) => UiNode::Input(props, TextInputState::new())
+            Node::Input(props) => UiNode::Input(props, TextInputState::new()),
         }
     }
 }
@@ -61,10 +68,7 @@ impl UiNode {
         match self {
             UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
             UiNode::Text(TextProps { text }) => Text::new(text.clone()).into(),
-            UiNode::Button(ButtonProps {
-                label,
-                on_click,
-            }, state) => {
+            UiNode::Button(ButtonProps { label, on_click }, state) => {
                 Button::new::<Text>(state, Text::new(label.clone()).into())
                     .on_press(PinholeMessage::PerformAction(on_click.clone()))
                     .into()
@@ -80,15 +84,13 @@ impl UiNode {
                 let checked = *checked;
                 let on_change = on_change.clone();
                 let default_value = LocalFormValue::Boolean(checked);
-                let value = form_state
-                    .get(&id)
-                    .unwrap_or(&default_value);
+                let value = form_state.get(&id).unwrap_or(&default_value);
 
                 Checkbox::new(value.boolean(), label.clone(), move |value| {
-                    PinholeMessage::FormValueChanged { 
+                    PinholeMessage::FormValueChanged {
                         id: id.clone(),
-                        value: LocalFormValue::Boolean(value), 
-                        action: Some(on_change.clone()) 
+                        value: LocalFormValue::Boolean(value),
+                        action: Some(on_change.clone()),
                     }
                 })
                 .into()
@@ -104,14 +106,17 @@ impl UiNode {
                 Column::with_children(elements).into()
             }
 
-            UiNode::Input(InputProps {
-                id,
-                label,
-                password,
-            }, state) => {
+            UiNode::Input(
+                InputProps {
+                    id,
+                    label,
+                    password,
+                },
+                state,
+            ) => {
                 let value = match form_state.get(id) {
                     Some(value) => value.clone(),
-                    None => LocalFormValue::String("".to_string())
+                    None => LocalFormValue::String("".to_string()),
                 };
 
                 let id = id.clone();
@@ -119,7 +124,7 @@ impl UiNode {
                     PinholeMessage::FormValueChanged {
                         id: id.clone(),
                         value: LocalFormValue::String(new_value),
-                        action: None
+                        action: None,
                     }
                 });
 
@@ -127,10 +132,7 @@ impl UiNode {
                     input = input.password();
                 }
 
-                Row::with_children(vec![
-                    Text::new(label.clone()).into(),
-                    input.into()
-                ]).into()
+                Row::with_children(vec![Text::new(label.clone()).into(), input.into()]).into()
             }
         }
     }
@@ -170,7 +172,7 @@ impl Application for Pinhole {
                     form_state: HashMap::new(),
                     button_state: HashMap::new(),
                     text_input_state: HashMap::new(),
-                }
+                },
             },
             Command::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
         )
@@ -205,13 +207,19 @@ impl Application for Pinhole {
             },
 
             PinholeMessage::PerformAction(action) => {
-                task::block_on(self.network_session.action(&action, &convert_form_state(&self.context.form_state)));
-            },
+                task::block_on(
+                    self.network_session
+                        .action(&action, &convert_form_state(&self.context.form_state)),
+                );
+            }
             PinholeMessage::FormValueChanged { id, value, action } => {
                 self.context.form_state.insert(id, value);
 
                 if let Some(action) = action {
-                    task::block_on(self.network_session.action(&action, &convert_form_state(&self.context.form_state)));
+                    task::block_on(
+                        self.network_session
+                            .action(&action, &convert_form_state(&self.context.form_state)),
+                    );
                 }
             }
         }

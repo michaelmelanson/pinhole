@@ -1,6 +1,8 @@
 use maplit::hashmap;
 
-use pinhole::{Action, Context, Document, Node, Render, Result, Route, Storage, TextProps, CheckboxProps};
+use pinhole::{
+    Action, CheckboxProps, Context, Document, Node, Render, Result, Route, Storage, TextProps,
+};
 
 use crate::model::Todo;
 
