@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 #![recursion_limit = "1024"]
 mod form;
 mod network;
@@ -26,7 +25,7 @@ enum PinholeMessage {
     LoadStarted(()),
     NetworkSessionEvent(NetworkSessionEvent),
     PerformAction(Action),
-    FormValueChanged { id: String, value: LocalFormValue },
+    FormValueChanged { id: String, value: LocalFormValue, action: Option<Action> },
 }
 
 enum UiNode {
@@ -77,13 +76,20 @@ impl UiNode {
                 checked,
                 on_change,
             }) => {
+                let id = id.clone();
+                let checked = *checked;
                 let on_change = on_change.clone();
+                let default_value = LocalFormValue::Boolean(checked);
                 let value = form_state
-                    .get(id)
-                    .unwrap_or(&LocalFormValue::Boolean(false));
+                    .get(&id)
+                    .unwrap_or(&default_value);
 
-                Checkbox::new(value.boolean(), label.clone(), move |_checked| {
-                    PinholeMessage::PerformAction(on_change.clone())
+                Checkbox::new(value.boolean(), label.clone(), move |value| {
+                    PinholeMessage::FormValueChanged { 
+                        id: id.clone(),
+                        value: LocalFormValue::Boolean(value), 
+                        action: Some(on_change.clone()) 
+                    }
                 })
                 .into()
             }
@@ -109,13 +115,22 @@ impl UiNode {
                 };
 
                 let id = id.clone();
-                TextInput::new(state, "", &value.string(), move |new_value| {
+                let mut input = TextInput::new(state, "", &value.string(), move |new_value| {
                     PinholeMessage::FormValueChanged {
                         id: id.clone(),
                         value: LocalFormValue::String(new_value),
+                        action: None
                     }
-                })
-                .into()
+                });
+
+                if *password {
+                    input = input.password();
+                }
+
+                Row::with_children(vec![
+                    Text::new(label.clone()).into(),
+                    input.into()
+                ]).into()
             }
         }
     }
@@ -193,8 +208,12 @@ impl Application for Pinhole {
             PinholeMessage::PerformAction(action) => {
                 task::block_on(self.network_session.action(&action, &convert_form_state(&self.context.form_state)));
             },
-            PinholeMessage::FormValueChanged { id, value } => {
+            PinholeMessage::FormValueChanged { id, value, action } => {
                 self.context.form_state.insert(id, value);
+
+                if let Some(action) = action {
+                    task::block_on(self.network_session.action(&action, &convert_form_state(&self.context.form_state)));
+                }
             }
         }
 
