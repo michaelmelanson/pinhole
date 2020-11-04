@@ -65,7 +65,7 @@ fn list(todos: &Vec<Todo>) -> Document {
                         Node::Checkbox(CheckboxProps {
                             id: t.id.clone(),
                             label: t.text.clone(),
-                            checked: false,
+                            checked: t.done,
                             on_change: action,
                         })
                         .boxed()
