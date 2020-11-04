@@ -9,10 +9,10 @@ edition = "2018"
 [dependencies]
 pinhole-protocol = { path = "../pinhole-protocol" }
 async-std = { version = "1.5", features = ['unstable'] }
-glium = { version = "0.27", default-features = true }
-imgui = { git = "https://github.com/Gekkio/imgui-rs.git" }
-imgui-glium-renderer = { git = "https://github.com/Gekkio/imgui-rs.git" }
-imgui-winit-support = { git = "https://github.com/Gekkio/imgui-rs.git" }
+iced = { git = "https://github.com/hecrj/iced.git", features = ['async-std'] }
+iced_wgpu = { git = "https://github.com/hecrj/iced.git" }
+iced_winit = { git = "https://github.com/hecrj/iced.git" }
+iced_native = { git = "https://github.com/hecrj/iced.git" }
 futures = "*"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"

@@ -1,125 +1,208 @@
-#![recursion_limit="1024"]
+#![feature(async_closure)]
+#![recursion_limit = "1024"]
 mod form;
 mod network;
-mod system;
-
-use kv_log_macro as log;
 
 use async_std::task;
-
-use imgui::*;
+use iced::{Application, Button, Checkbox, Column, Command, Length, Row, Settings, Space, Subscription, Text, TextInput, button::State as ButtonState, text_input::State as TextInputState};
+use kv_log_macro as log;
 
 use form::{LocalFormState, LocalFormValue, convert_form_state};
-use network::{NetworkSessionEvent, NetworkSession};
-use pinhole_protocol::document::{Node, Document};
-use std::collections::HashMap;
+use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
+use pinhole_protocol::document::{Action, ButtonProps, CheckboxProps, InputProps, Node, TextProps};
+use std::{sync::Arc, collections::HashMap};
 
+fn main() -> iced::Result {
+    femme::with_level(::log::LevelFilter::Debug);
 
-fn main() {
-  femme::with_level(::log::LevelFilter::Debug);
+    log::info!("📌 Pinhole starting up...");
 
-  let address = "127.0.0.1:8080".to_string();
-
-  log::info!("📌 Pinhole starting up...");
-  let system = system::init("Pinhole");
-
-  let mut network_session = NetworkSession::new(address);
-  task::block_on(network_session.load(&"/".to_string()));
-
-  let mut document = Document(Node::Text { text: "Loading...".to_string() });
-
-  let mut form_state: LocalFormState = HashMap::new();
-
-  system.main_loop(move |_, ui| {
-
-    while let Some(event) = network_session.try_recv() {
-      match event {
-        NetworkSessionEvent::DocumentUpdated(new_document) => {
-          document = new_document;
-          log::debug!("Document updated", { document: format!("{:?}", document) });
-        },
-      }
-    }
-
-    let colour_token = ui.push_style_colors(&[
-      (StyleColor::WindowBg, [1.0, 1.0, 1.0, 1.0]),
-      (StyleColor::Text, [0.0, 0.0, 0.0, 1.0])
-    ]);
-
-    let style_var = ui.push_style_vars(&[
-      StyleVar::WindowRounding(0.0),
-    ]);
-
-
-    let document = document.clone();
-
-    let window = Window::new(im_str!("Pinhole"))
-      .position([0., 0.], Condition::Always)
-      .size(ui.window_size(), Condition::Always)
-      .draw_background(false)
-      .no_decoration();
-
-    if let Some(window) = window.begin(ui) {
-      render_node(ui, &mut network_session, &mut form_state, &document.0);
-
-      window.end(ui);
-    }
-    
-    style_var.pop(ui);
-    colour_token.pop(ui);
-  });
+    Pinhole::run(Settings::default())
 }
 
-fn render_node<'a, 'b>(ui: &'a mut Ui, network_session: &mut NetworkSession, form_state: &mut LocalFormState, node: &'b Node) {
-  match node {
-    Node::Empty => {},
-    Node::Text { text } => ui.text(text),
-    Node::Button { label, on_click } => {
-      if ui.button(&ImString::from(label.clone()), [100., 30.]) {
-        task::block_on(network_session.action(&on_click, &convert_form_state(form_state)));
-      }
-    },
+#[derive(Debug, Clone)]
+enum PinholeMessage {
+    StartNavigation(String),
+    LoadStarted(()),
+    NetworkSessionEvent(NetworkSessionEvent),
+    PerformAction(Action),
+    FormValueChanged { id: String, value: LocalFormValue },
+}
 
-    Node::Checkbox { id, label, checked, on_change } => {
-      let value = form_state.entry(id.clone()).or_insert(LocalFormValue::Boolean(*checked));
+enum UiNode {
+    Empty,
+    Container(Vec<Box<UiNode>>),
+    Text(TextProps),
+    Button(ButtonProps, ButtonState),
+    Checkbox(CheckboxProps),
+    Input(InputProps, TextInputState)
+}
 
-      let mut input = value.boolean();
-      if ui.checkbox(&ImString::from(label.clone()), &mut input) {
-        *value = LocalFormValue::Boolean(input);
-        
-        task::block_on(network_session.action(&on_change, &convert_form_state(form_state)));
-      }
-    },
-
-    Node::Container { children } => {
-      let group = ui.begin_group();
-
-      for node in children {
-        render_node(ui, network_session, form_state, node);
-      }
-
-      group.end(ui);
-    },
-
-    Node::Input { label, id, password} => {
-      let value = form_state.entry(id.clone()).or_insert(LocalFormValue::String("".to_string()));
-      
-      // imgui puts labels on the right side normally for whatever reason
-      // this series of steps places it at the left.
-      ui.align_text_to_frame_padding();
-      ui.text(label);
-      ui.same_line(100.);
-
-      // imgui uses the label to identify a field.
-      // the '##' prefix acts like a comment -- the '##' and everything after
-      // it is not shown but makes the label unique.
-      let mut input = ImString::new(value.string());
-      ui.input_text(&ImString::new(format!("##{}", id)), &mut input)
-        .resize_buffer(true)
-        .password(*password)
-        .auto_select_all(true)
-        .build();
-      *value = LocalFormValue::String(input.to_string());
+impl From<Node> for UiNode {
+    fn from(node: Node) -> Self {
+        match node {
+            Node::Empty => Self::Empty,
+            Node::Container { children } => {
+                let mut nodes = Vec::new();
+                for node in children {
+                    nodes.push(Box::new(UiNode::from(*node)));
+                }
+                Self::Container(nodes)
+            },
+            Node::Text(props) => UiNode::Text(props),
+            Node::Button(props) => UiNode::Button(props, ButtonState::new()),
+            Node::Checkbox(props) => UiNode::Checkbox(props),
+            Node::Input(props) => UiNode::Input(props, TextInputState::new())
+        }
     }
-  }
+}
+
+impl UiNode {
+    fn view(&mut self, form_state: &LocalFormState) -> iced::Element<PinholeMessage> {
+        match self {
+            UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
+            UiNode::Text(TextProps { text }) => Text::new(text.clone()).into(),
+            UiNode::Button(ButtonProps {
+                label,
+                on_click,
+            }, state) => {
+                Button::new::<Text>(state, Text::new(label.clone()).into())
+                    .on_press(PinholeMessage::PerformAction(on_click.clone()))
+                    .into()
+            }
+
+            UiNode::Checkbox(CheckboxProps {
+                id,
+                label,
+                checked,
+                on_change,
+            }) => {
+                let on_change = on_change.clone();
+                let value = form_state
+                    .get(id)
+                    .unwrap_or(&LocalFormValue::Boolean(false));
+
+                Checkbox::new(value.boolean(), label.clone(), move |_checked| {
+                    PinholeMessage::PerformAction(on_change.clone())
+                })
+                .into()
+            }
+
+            UiNode::Container(children) => {
+                let mut elements = Vec::new();
+
+                for element in children.iter_mut() {
+                    elements.push(element.as_mut().view(form_state));
+                }
+
+                Column::with_children(elements).into()
+            }
+
+            UiNode::Input(InputProps {
+                id,
+                label,
+                password,
+            }, state) => {
+                let value = match form_state.get(id) {
+                    Some(value) => value.clone(),
+                    None => LocalFormValue::String("".to_string())
+                };
+
+                let id = id.clone();
+                TextInput::new(state, "", &value.string(), move |new_value| {
+                    PinholeMessage::FormValueChanged {
+                        id: id.clone(),
+                        value: LocalFormValue::String(new_value),
+                    }
+                })
+                .into()
+            }
+        }
+    }
+}
+
+struct Pinhole {
+    network_session: Arc<NetworkSession>,
+    document: UiNode,
+
+    context: UiContext,
+}
+
+#[derive(Clone)]
+struct UiContext {
+    button_state: HashMap<String, ButtonState>,
+    text_input_state: HashMap<String, TextInputState>,
+    form_state: LocalFormState,
+}
+
+impl Application for Pinhole {
+    type Executor = iced::executor::Default;
+    type Message = PinholeMessage;
+    type Flags = ();
+
+    fn new(flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+        let address = "127.0.0.1:8080".to_string();
+        let network_session = NetworkSession::new(address);
+        let document = UiNode::Text(TextProps {
+            text: "Loading...".to_string(),
+        });
+
+        (
+            Pinhole {
+                network_session: Arc::new(network_session),
+                document,
+                context: UiContext {
+                    form_state: HashMap::new(),
+                    button_state: HashMap::new(),
+                    text_input_state: HashMap::new(),
+                }
+            },
+            Command::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
+        )
+    }
+
+    fn title(&self) -> String {
+        "Pinhole".to_string()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        Subscription::from_recipe(NetworkSessionSubscription::new(
+            self.network_session.clone(),
+        ))
+        .map(PinholeMessage::NetworkSessionEvent)
+    }
+
+    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
+        let mut command = Command::none();
+        match message {
+            PinholeMessage::StartNavigation(path) => {
+                self.network_session.load(&path);
+                command = Command::perform(async {}, PinholeMessage::LoadStarted)
+            }
+            PinholeMessage::LoadStarted(()) => {
+                log::info!("Load started");
+            }
+            PinholeMessage::NetworkSessionEvent(event) => match event {
+                NetworkSessionEvent::DocumentUpdated(document) => {
+                    log::info!("Document updated: {:?}", document);
+                    self.document = document.0.into();
+                }
+                NetworkSessionEvent::Error(error) => log::warn!("Network error: {:?}", error),
+            },
+
+            PinholeMessage::PerformAction(action) => {
+                task::block_on(self.network_session.action(&action, &convert_form_state(&self.context.form_state)));
+            },
+            PinholeMessage::FormValueChanged { id, value } => {
+                self.context.form_state.insert(id, value);
+            }
+        }
+
+        // Command::perform(self.network_session.recv(), PinholeMessage::NetworkSessionEvent)
+        command
+    }
+
+    fn view(&mut self) -> iced::Element<Self::Message> {
+        self.document.view(&self.context.form_state)
+    }
 }

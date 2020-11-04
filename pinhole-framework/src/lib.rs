@@ -8,32 +8,35 @@ use kv_log_macro as log;
 
 use async_std::{
     future::Future,
+    net::{TcpListener, TcpStream, ToSocketAddrs},
     prelude::*,
     task,
-    net::{TcpListener, ToSocketAddrs, TcpStream}
 };
 
 use pinhole_protocol::{
-    document::{Request},
-    network::{receive_request, send_response}
+    document::Request,
+    network::{receive_request, send_response},
 };
 
 pub use application::Application;
 pub use context::Context;
-pub use route::{Route, Storage, Render};
-pub use pinhole_protocol::document::{Action, Response, Document, Node, Scope};
+pub use pinhole_protocol::document::{Action, Document, Node, Response, Scope, TextProps, CheckboxProps, InputProps, ButtonProps};
+pub use route::{Render, Route, Storage};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-pub fn run(application: impl Application + 'static, address: String) -> Result<()> { 
+pub fn run(application: impl Application + 'static, address: String) -> Result<()> {
     femme::start();
 
     task::block_on(accept_loop(application, address))
 }
 
-async fn accept_loop(application: impl Application + 'static, addr: impl ToSocketAddrs) -> Result<()> {
+async fn accept_loop(
+    application: impl Application + 'static,
+    addr: impl ToSocketAddrs,
+) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
-    
+
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
         let stream = stream?;
@@ -49,12 +52,16 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
 
     while let Some(ref request) = receive_request(&mut stream).await? {
         match request {
-            Request::Action { path, action, form_state } => {
+            Request::Action {
+                path,
+                action,
+                form_state,
+            } => {
                 log::debug!("Action: {:?}", action);
                 if let Some(route) = application.route(path) {
                     let mut context = Context {
                         form_state: form_state.clone(),
-                        stream: &mut stream
+                        stream: &mut stream,
                     };
 
                     let action = route.action(action, &mut context);
@@ -62,13 +69,17 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
                 } else {
                     log::error!("No route found", { path: path });
                 }
-            },
+            }
 
             Request::Load { path, storage } => {
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
-                        Render::Document(document) => send_response(&mut stream, Response::Render { document }).await?,
-                        Render::RedirectTo(path) => send_response(&mut stream, Response::RedirectTo { path }).await?
+                        Render::Document(document) => {
+                            send_response(&mut stream, Response::Render { document }).await?
+                        }
+                        Render::RedirectTo(path) => {
+                            send_response(&mut stream, Response::RedirectTo { path }).await?
+                        }
                     }
                 } else {
                     log::error!("No route found", { path: path });
