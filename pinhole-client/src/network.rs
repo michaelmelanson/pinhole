@@ -9,7 +9,7 @@ use pinhole_protocol::{
     document::{Action, Document, FormState, Request, Response, Scope},
     network::{receive_response, send_request},
 };
-use std::{collections::HashMap, rc::Rc, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -26,12 +26,6 @@ pub enum NetworkSessionCommand {
 #[derive(Debug, Clone)]
 pub enum NetworkSessionEvent {
     DocumentUpdated(Document),
-    Error(NetworkSessionError),
-}
-
-#[derive(Debug, Clone)]
-pub enum NetworkSessionError {
-    Terminated,
 }
 
 #[derive(Clone)]

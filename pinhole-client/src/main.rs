@@ -155,7 +155,7 @@ impl Application for Pinhole {
     type Message = PinholeMessage;
     type Flags = ();
 
-    fn new(flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let address = "127.0.0.1:8080".to_string();
         let network_session = NetworkSession::new(address);
         let document = UiNode::Text(TextProps {
@@ -202,7 +202,6 @@ impl Application for Pinhole {
                     log::info!("Document updated: {:?}", document);
                     self.document = document.0.into();
                 }
-                NetworkSessionEvent::Error(error) => log::warn!("Network error: {:?}", error),
             },
 
             PinholeMessage::PerformAction(action) => {
