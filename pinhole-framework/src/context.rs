@@ -8,7 +8,12 @@ pub struct Context<'a> {
 }
 
 impl Context<'_> {
-    pub async fn store(&mut self, scope: StorageScope, key: impl ToString, value: impl ToString) -> Result<()> {
+    pub async fn store(
+        &mut self,
+        scope: StorageScope,
+        key: impl ToString,
+        value: impl ToString,
+    ) -> Result<()> {
         let key = key.to_string();
         let value = value.to_string();
         send_response(

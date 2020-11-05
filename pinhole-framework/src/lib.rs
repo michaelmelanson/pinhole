@@ -52,7 +52,9 @@ async fn accept_loop(
 }
 
 async fn connection_loop(application: impl Application, mut stream: TcpStream) -> Result<()> {
-    log::info!("New connection", {address: format!("{:?}", stream.peer_addr()?)});
+    log::info!("New connection", {
+        address: format!("{:?}", stream.peer_addr()?)
+    });
 
     while let Some(ref request) = receive_request(&mut stream).await? {
         match request {
@@ -83,7 +85,8 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
                         Render::RedirectTo(path) => {
                             send_response(&mut stream, ServerToClientMessage::RedirectTo { path })
                         }
-                    }.await?
+                    }
+                    .await?
                 } else {
                     log::error!("No route found", { path: path });
                 }

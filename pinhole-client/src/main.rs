@@ -101,7 +101,7 @@ impl Application for Pinhole {
             }
             PinholeMessage::NetworkSessionEvent(event) => match event {
                 NetworkSessionEvent::DocumentUpdated(document) => {
-                    log::info!("Document updated: {:?}", document);
+                    log::info!("Document updated", { document: format!("{:?}", document) });
                     self.document = document.0.into();
                 }
             },
@@ -112,7 +112,7 @@ impl Application for Pinhole {
                 );
             }
             PinholeMessage::FormValueChanged { id, value, action } => {
-                log::info!("Form value changed:", { id: id, value: value, action: action });
+                log::info!("Form value changed", { id: id, value: value, action: action });
                 self.context.form_state.insert(id, value);
 
                 if let Some(action) = action {

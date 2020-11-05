@@ -1,6 +1,6 @@
 use pinhole::{
-    Action, ButtonProps, Context, Document, InputProps, Node, Render, Result, Route, StorageScope,
-    Storage, TextProps,
+    Action, ButtonProps, Context, Document, InputProps, Node, Render, Result, Route, Storage,
+    StorageScope, TextProps,
 };
 
 pub struct IndexRoute;

@@ -5,6 +5,8 @@ use async_std::{
 };
 use futures::{select, stream::BoxStream, FutureExt};
 
+use kv_log_macro as log;
+
 use pinhole_protocol::{
     action::Action,
     document::Document,
@@ -17,6 +19,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+#[derive(Debug)]
 pub enum NetworkSessionCommand {
     Action {
         action: Action,
@@ -26,6 +29,13 @@ pub enum NetworkSessionCommand {
         path: String,
     },
 }
+
+impl ::log::kv::ToValue for NetworkSessionCommand {
+    fn to_value(&self) -> ::log::kv::Value {
+        ::log::kv::Value::from_debug(self)
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum NetworkSessionEvent {
@@ -146,6 +156,7 @@ async fn session_loop(
             select! {
               command = command_receiver.recv().fuse() => {
                 if let Ok(command) = command {
+                    log::info!("Received command from app", {command: command});
                   match command {
                     NetworkSessionCommand::Action { action, form_state } => {
                       let path = current_path.clone().expect("Can't fire actions without a path set");
@@ -162,10 +173,10 @@ async fn session_loop(
                 }
               },
 
-              response = receive_response(&mut stream).fuse() => {
-                let response = response?;
-                if let Some(response) = response {
-                  match response {
+              message = receive_response(&mut stream).fuse() => {
+                if let Some(message) = message? {
+                log::info!("Received message from server", {message: message});
+                  match message {
                     ServerToClientMessage::Render { document } => {
                       event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await;
                     },
