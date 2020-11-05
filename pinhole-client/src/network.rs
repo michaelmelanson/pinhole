@@ -6,7 +6,7 @@ use async_std::{
 use futures::{select, stream::BoxStream, FutureExt};
 
 use pinhole_protocol::{
-    document::{Action, Document, FormState, ClientToServerMessage, ServerToClientMessage, Scope},
+    document::{Action, ClientToServerMessage, Document, FormState, Scope, ServerToClientMessage},
     network::{receive_response, send_request},
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};

@@ -21,7 +21,8 @@ use pinhole_protocol::{
 pub use application::Application;
 pub use context::Context;
 pub use pinhole_protocol::document::{
-    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, ServerToClientMessage, Scope, TextProps,
+    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, Scope, ServerToClientMessage,
+    TextProps,
 };
 pub use route::{Render, Route, Storage};
 
@@ -77,10 +78,12 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
                         Render::Document(document) => {
-                            send_response(&mut stream, ServerToClientMessage::Render { document }).await?
+                            send_response(&mut stream, ServerToClientMessage::Render { document })
+                                .await?
                         }
                         Render::RedirectTo(path) => {
-                            send_response(&mut stream, ServerToClientMessage::RedirectTo { path }).await?
+                            send_response(&mut stream, ServerToClientMessage::RedirectTo { path })
+                                .await?
                         }
                     }
                 } else {

@@ -36,7 +36,7 @@ pub async fn receive_response(stream: &mut TcpStream) -> Result<Option<ServerToC
     stream.read(&mut bytes).await?;
     let response_length = u32::from_le_bytes(bytes);
 
-    log::trace!("Incoming response", {length: response_length});
+    log::trace!("Incoming response", { length: response_length });
 
     if response_length > 0 {
         let mut bytes = Vec::new();
@@ -45,7 +45,7 @@ pub async fn receive_response(stream: &mut TcpStream) -> Result<Option<ServerToC
 
         let response = serde_cbor::from_slice::<ServerToClientMessage>(&bytes)?;
 
-        log::debug!("Received response", {response: response});
+        log::debug!("Received response", { response: response });
         Ok(Some(response))
     } else {
         log::debug!("Empty response");
@@ -60,7 +60,7 @@ pub async fn receive_request(stream: &mut TcpStream) -> Result<Option<ClientToSe
     stream.read(&mut bytes).await?;
     let request_length = u32::from_le_bytes(bytes);
 
-    log::trace!("Incoming request", {length: request_length});
+    log::trace!("Incoming request", { length: request_length });
 
     if request_length > 0 {
         let mut bytes = Vec::new();
