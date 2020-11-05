@@ -99,7 +99,7 @@ It's currently only partly done, but when completed:
 
 ### View layer
 
-Pinhole's client uses [Dear Imgui](https://github.com/ocornut/imgui) for rendering its views. When the client receives a **`Render`** message, it updates its _current document_ and from then on renders that document on each frame.
+Pinhole's client uses [Iced](https://github.com/hecrj/iced) for rendering its views. When the client receives a **`Render`** message, it updates its _current document_ and from then on renders that document on each frame.
 
 ## Roadmap and future plans
 
