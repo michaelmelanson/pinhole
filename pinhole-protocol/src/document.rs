@@ -20,6 +20,11 @@ impl Action {
     }
 }
 
+impl log::kv::ToValue for Action {
+    fn to_value(&self) -> log::kv::Value {
+        log::kv::Value::from_debug(self)
+    }
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Scope {
     /// Persisted across restarts
@@ -41,7 +46,7 @@ pub enum FormValue {
 pub type FormState = HashMap<String, FormValue>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Request {
+pub enum ClientToServerMessage {
     Load {
         path: String,
         storage: HashMap<String, String>,
@@ -54,7 +59,7 @@ pub enum Request {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Response {
+pub enum ServerToClientMessage {
     Render {
         document: Document,
     },
@@ -66,6 +71,13 @@ pub enum Response {
         key: String,
         value: String,
     },
+}
+
+
+impl log::kv::ToValue for ServerToClientMessage {
+    fn to_value(&self) -> log::kv::Value {
+        log::kv::Value::from_debug(self)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -103,8 +115,6 @@ pub enum Node {
     Checkbox(CheckboxProps),
     Input(InputProps),
 }
-
-unsafe impl Send for Node {}
 
 impl Node {
     pub fn boxed(self) -> Box<Node> {

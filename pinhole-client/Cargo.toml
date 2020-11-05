@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 pinhole-protocol = { path = "../pinhole-protocol" }
-async-std = { version = "1.5", features = ['unstable'] }
+async-std = { version = "1.7", features = ['unstable'] }
 iced = { git = "https://github.com/hecrj/iced.git", features = ['async-std'] }
 iced_wgpu = { git = "https://github.com/hecrj/iced.git" }
 iced_winit = { git = "https://github.com/hecrj/iced.git" }

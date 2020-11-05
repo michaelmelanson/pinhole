@@ -7,6 +7,12 @@ pub enum LocalFormValue {
     Boolean(bool),
 }
 
+impl log::kv::ToValue for LocalFormValue {
+    fn to_value(&self) -> log::kv::Value {
+        log::kv::Value::from_debug(self)
+    }
+}
+
 impl LocalFormValue {
     pub fn boolean(&self) -> bool {
         match self {

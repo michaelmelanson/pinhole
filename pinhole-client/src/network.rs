@@ -6,7 +6,7 @@ use async_std::{
 use futures::{select, stream::BoxStream, FutureExt};
 
 use pinhole_protocol::{
-    document::{Action, Document, FormState, Request, Response, Scope},
+    document::{Action, Document, FormState, ClientToServerMessage, ServerToClientMessage, Scope},
     network::{receive_response, send_request},
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -34,8 +34,6 @@ pub struct NetworkSession {
     command_sender: Sender<NetworkSessionCommand>,
     event_receiver: Receiver<NetworkSessionEvent>,
 }
-
-unsafe impl Send for NetworkSession {}
 
 impl NetworkSession {
     pub fn new(address: String) -> NetworkSession {
@@ -137,7 +135,7 @@ async fn session_loop(
 
         if let Some(path) = current_path.clone() {
             let storage = session_storage.clone();
-            send_request(&mut stream, Request::Load { path, storage }).await?;
+            send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
         }
 
         'connection: loop {
@@ -147,12 +145,12 @@ async fn session_loop(
                   match command {
                     NetworkSessionCommand::Action { action, form_state } => {
                       let path = current_path.clone().expect("Can't fire actions without a path set");
-                      send_request(&mut stream, Request::Action { path, action, form_state }).await?;
+                      send_request(&mut stream, ClientToServerMessage::Action { path, action, form_state }).await?;
                     },
                     NetworkSessionCommand::Load { path } => {
                       current_path = Some(path.clone());
                       let storage = session_storage.clone();
-                      send_request(&mut stream, Request::Load { path, storage }).await?;
+                      send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
                     }
                   }
                 } else {
@@ -164,15 +162,15 @@ async fn session_loop(
                 let response = response?;
                 if let Some(response) = response {
                   match response {
-                    Response::Render { document } => {
+                    ServerToClientMessage::Render { document } => {
                       event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await;
                     },
-                    Response::RedirectTo { path } => {
+                    ServerToClientMessage::RedirectTo { path } => {
                       current_path = Some(path.clone());
                       let storage = session_storage.clone();
-                      send_request(&mut stream, Request::Load { path, storage }).await?;
+                      send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
                     }
-                    Response::Store { scope, key, value } => {
+                    ServerToClientMessage::Store { scope, key, value } => {
                       match scope {
                         Scope::Session => { session_storage.insert(key, value); },
                         _ => todo!("scope {:?}", scope)

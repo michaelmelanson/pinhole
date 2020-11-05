@@ -14,14 +14,14 @@ use async_std::{
 };
 
 use pinhole_protocol::{
-    document::Request,
+    document::ClientToServerMessage,
     network::{receive_request, send_response},
 };
 
 pub use application::Application;
 pub use context::Context;
 pub use pinhole_protocol::document::{
-    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, Response, Scope, TextProps,
+    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, ServerToClientMessage, Scope, TextProps,
 };
 pub use route::{Render, Route, Storage};
 
@@ -54,7 +54,7 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
 
     while let Some(ref request) = receive_request(&mut stream).await? {
         match request {
-            Request::Action {
+            ClientToServerMessage::Action {
                 path,
                 action,
                 form_state,
@@ -73,14 +73,14 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
                 }
             }
 
-            Request::Load { path, storage } => {
+            ClientToServerMessage::Load { path, storage } => {
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
                         Render::Document(document) => {
-                            send_response(&mut stream, Response::Render { document }).await?
+                            send_response(&mut stream, ServerToClientMessage::Render { document }).await?
                         }
                         Render::RedirectTo(path) => {
-                            send_response(&mut stream, Response::RedirectTo { path }).await?
+                            send_response(&mut stream, ServerToClientMessage::RedirectTo { path }).await?
                         }
                     }
                 } else {
