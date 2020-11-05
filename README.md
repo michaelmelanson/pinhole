@@ -114,7 +114,6 @@ Pinhole's client uses [Iced](https://github.com/hecrj/iced) for rendering its vi
 ### Ideas and open questions
 * Embed an extension language so servers can be written in e.g. Javascript via Deno.
 * Client-side action handlers by shipping Javascript bundles.
-* Consider a different view layer? Dear Imgui is interesting, and very simple and fast, but it's not as powerful as HTML / CSS.
 * Polling? Server asks client to refresh page at some point in the future.
 * Subscriptions. Rough sketch: Server sends client a subscription list, which client then subscribes to. When events occur server-side on one of these channels, server asks client to refresh.
 
