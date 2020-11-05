@@ -1,6 +1,6 @@
 use pinhole::{
-    Action, ButtonProps, Context, Document, InputProps, Node, Render, Result, Route, Storage,
-    StorageScope, TextProps,
+    Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size,
+    Sizing, Storage, StorageScope, TextProps,
 };
 
 pub struct IndexRoute;
@@ -41,6 +41,10 @@ impl Route for IndexRoute {
 
 fn signin() -> Document {
     Document(Node::Container {
+        layout: Layout::default()
+            .horizontal(Sizing::default().centred().size(Size::Fixed(200)))
+            .vertical(Sizing::default().centred().size(Size::Fixed(300))),
+
         children: vec![
             Node::Text(TextProps {
                 text: "TODO MVC".to_string(),
@@ -50,12 +54,14 @@ fn signin() -> Document {
                 label: "Email".to_string(),
                 id: "email".to_string(),
                 password: false,
+                placeholder: Some("yourname@example.com".to_string()),
             })
             .boxed(),
             Node::Input(InputProps {
                 label: "Password".to_string(),
                 id: "password".to_string(),
                 password: true,
+                placeholder: None,
             })
             .boxed(),
             Node::Button(ButtonProps {

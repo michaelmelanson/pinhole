@@ -1,14 +1,14 @@
-use iced::{
-    button::State as ButtonState, text_input::State as TextInputState, Button, Checkbox, Column,
-    Length, Row, Space, Text, TextInput,
-};
+use iced::{Align, Button, Checkbox, Column, Container, Length, Row, Space, Text, TextInput, button::State as ButtonState, text_input::State as TextInputState};
 
 use crate::{LocalFormState, LocalFormValue, PinholeMessage};
-use pinhole_protocol::node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps};
+use pinhole_protocol::{
+    layout::{Layout, Position, Size},
+    node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
+};
 
 pub enum UiNode {
     Empty,
-    Container(Vec<Box<UiNode>>),
+    Container(Layout, Vec<Box<UiNode>>),
     Text(TextProps),
     Button(ButtonProps, ButtonState),
     Checkbox(CheckboxProps),
@@ -19,12 +19,12 @@ impl From<Node> for UiNode {
     fn from(node: Node) -> Self {
         match node {
             Node::Empty => Self::Empty,
-            Node::Container { children } => {
+            Node::Container { layout, children } => {
                 let mut nodes = Vec::new();
                 for node in children {
                     nodes.push(Box::new(UiNode::from(*node)));
                 }
-                Self::Container(nodes)
+                Self::Container(layout, nodes)
             }
             Node::Text(props) => UiNode::Text(props),
             Node::Button(props) => UiNode::Button(props, ButtonState::new()),
@@ -67,14 +67,48 @@ impl UiNode {
                 .into()
             }
 
-            UiNode::Container(children) => {
+            UiNode::Container(layout, children) => {
                 let mut elements = Vec::new();
 
                 for element in children.iter_mut() {
                     elements.push(element.as_mut().view(form_state));
                 }
 
-                Column::with_children(elements).into()
+                let mut container = Container::new(Column::with_children(elements));
+
+                container = container.align_x(match layout.horizontal.position {
+                    Position::Centre => Align::Center,
+                    Position::Start => Align::Start,
+                    Position::End => Align::End,
+                });
+
+                match layout.horizontal.size {
+                    Size::Auto => {}
+                    Size::Fixed(size) => {
+                        container = container.width(Length::Units(size));
+                    }
+                    Size::Fill => {
+                        container = container.width(Length::Fill);
+                    }
+                }
+
+                container = container.align_y(match layout.vertical.position {
+                    Position::Centre => Align::Center,
+                    Position::Start => Align::Start,
+                    Position::End => Align::End,
+                });
+
+                match layout.vertical.size {
+                    Size::Auto => {}
+                    Size::Fixed(size) => {
+                        container = container.height(Length::Units(size));
+                    }
+                    Size::Fill => {
+                        container = container.height(Length::Fill);
+                    }
+                }
+
+                container.into()
             }
 
             UiNode::Input(
@@ -82,6 +116,7 @@ impl UiNode {
                     id,
                     label,
                     password,
+                    placeholder,
                 },
                 state,
             ) => {
@@ -91,13 +126,15 @@ impl UiNode {
                 };
 
                 let id = id.clone();
-                let mut input = TextInput::new(state, "", &value.string(), move |new_value| {
-                    PinholeMessage::FormValueChanged {
-                        id: id.clone(),
-                        value: LocalFormValue::String(new_value),
-                        action: None,
-                    }
-                });
+                let placeholder = &placeholder.clone().unwrap_or("".to_string());
+                let mut input =
+                    TextInput::new(state, placeholder, &value.string(), move |new_value| {
+                        PinholeMessage::FormValueChanged {
+                            id: id.clone(),
+                            value: LocalFormValue::String(new_value),
+                            action: None,
+                        }
+                    });
 
                 if *password {
                     input = input.password();

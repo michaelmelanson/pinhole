@@ -1,7 +1,8 @@
 use maplit::hashmap;
 
 use pinhole::{
-    Action, CheckboxProps, Context, Document, Node, Render, Result, Route, Storage, TextProps,
+    Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing,
+    Storage, TextProps,
 };
 
 use crate::model::Todo;
@@ -49,12 +50,17 @@ impl Route for ListRoute {
 
 fn list(todos: &Vec<Todo>) -> Document {
     Document(Node::Container {
+        layout: Layout::default()
+            .horizontal(Sizing::default().centred().size(Size::Fixed(200)))
+            .vertical(Sizing::default().centred().size(Size::Fixed(300))),
+
         children: vec![
             Node::Text(TextProps {
                 text: "Your todos".to_string(),
             })
             .boxed(),
             Node::Container {
+                layout: Layout::default(),
                 children: todos
                     .iter()
                     .map(|t| {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::action::Action;
+use crate::{action::Action, layout::Layout};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TextProps {
@@ -26,12 +26,16 @@ pub struct InputProps {
     pub id: String,
     pub label: String,
     pub password: bool,
+    pub placeholder: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Node {
     Empty,
-    Container { children: Vec<Box<Node>> },
+    Container {
+        layout: Layout,
+        children: Vec<Box<Node>>,
+    },
     Text(TextProps),
     Button(ButtonProps),
     Checkbox(CheckboxProps),

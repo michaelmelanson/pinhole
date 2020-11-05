@@ -23,6 +23,7 @@ pub use context::Context;
 pub use pinhole_protocol::{
     action::Action,
     document::Document,
+    layout::{Layout, Position, Size, Sizing},
     messages::ServerToClientMessage,
     node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
     storage::StorageScope,

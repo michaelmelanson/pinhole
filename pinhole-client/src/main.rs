@@ -7,8 +7,8 @@ use async_std::task;
 use kv_log_macro as log;
 
 use iced::{
-    button::State as ButtonState, text_input::State as TextInputState, Application, Command,
-    Settings, Subscription,
+    button::State as ButtonState, text_input::State as TextInputState, Align, Application, Command,
+    Container, Length, Settings, Subscription,
 };
 
 use form::{convert_form_state, LocalFormState, LocalFormValue};
@@ -22,7 +22,14 @@ fn main() -> iced::Result {
 
     log::info!("📌 Pinhole starting up...");
 
-    Pinhole::run(Settings::default())
+    Pinhole::run(Settings {
+        window: iced::window::Settings {
+            size: (600, 400),
+            ..Default::default()
+        },
+        default_text_size: 14,
+        ..Default::default()
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -41,7 +48,6 @@ pub enum PinholeMessage {
 struct Pinhole {
     network_session: Arc<NetworkSession>,
     document: UiNode,
-
     context: UiContext,
 }
 
@@ -128,6 +134,11 @@ impl Application for Pinhole {
     }
 
     fn view(&mut self) -> iced::Element<Self::Message> {
-        self.document.view(&self.context.form_state)
+        Container::new(self.document.view(&self.context.form_state))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Align::Start)
+            .align_y(Align::Start)
+            .into()
     }
 }

@@ -36,7 +36,6 @@ impl ::log::kv::ToValue for NetworkSessionCommand {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum NetworkSessionEvent {
     DocumentUpdated(Document),
