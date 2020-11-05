@@ -4,7 +4,7 @@ use iced::{
 };
 
 use crate::{LocalFormState, LocalFormValue, PinholeMessage};
-use pinhole_protocol::document::{ButtonProps, CheckboxProps, InputProps, Node, TextProps};
+use pinhole_protocol::node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps};
 
 pub enum UiNode {
     Empty,

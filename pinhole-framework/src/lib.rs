@@ -20,9 +20,9 @@ use pinhole_protocol::{
 
 pub use application::Application;
 pub use context::Context;
-pub use pinhole_protocol::document::{
-    Action, ButtonProps, CheckboxProps, Document, InputProps, Node, Scope, ServerToClientMessage,
-    TextProps,
+pub use pinhole_protocol::{
+    document::{Action, Document, Scope, ServerToClientMessage},
+    node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
 };
 pub use route::{Render, Route, Storage};
 

@@ -13,7 +13,7 @@ use iced::{
 
 use form::{convert_form_state, LocalFormState, LocalFormValue};
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
-use pinhole_protocol::document::{Action, TextProps};
+use pinhole_protocol::{document::Action, node::TextProps};
 use std::{collections::HashMap, sync::Arc};
 use ui_node::UiNode;
 
@@ -105,7 +105,6 @@ impl Application for Pinhole {
                     self.document = document.0.into();
                 }
             },
-
             PinholeMessage::PerformAction(action) => {
                 task::block_on(
                     self.network_session
@@ -125,7 +124,6 @@ impl Application for Pinhole {
             }
         }
 
-        // Command::perform(self.network_session.recv(), PinholeMessage::NetworkSessionEvent)
         command
     }
 
