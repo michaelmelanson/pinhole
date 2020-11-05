@@ -13,7 +13,7 @@ use iced::{
 
 use form::{convert_form_state, LocalFormState, LocalFormValue};
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
-use pinhole_protocol::{document::Action, node::TextProps};
+use pinhole_protocol::{action::Action, node::TextProps};
 use std::{collections::HashMap, sync::Arc};
 use ui_node::UiNode;
 

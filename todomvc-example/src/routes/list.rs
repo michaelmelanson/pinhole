@@ -13,8 +13,8 @@ const ID_KEY: &str = "id";
 
 #[async_trait::async_trait]
 impl Route for ListRoute {
-    fn path(&self) -> String {
-        "/todos".to_string()
+    fn path(&self) -> &'static str {
+        "/todos"
     }
 
     async fn action<'a>(&self, action: &Action, _context: &mut Context<'a>) -> Result<()> {

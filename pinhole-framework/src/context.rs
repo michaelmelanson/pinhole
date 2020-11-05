@@ -1,5 +1,5 @@
-use crate::{Result, Scope, ServerToClientMessage};
-use pinhole_protocol::{document::FormState, network::send_response};
+use crate::{Result, ServerToClientMessage, StorageScope};
+use pinhole_protocol::{form_state::FormState, network::send_response};
 
 pub struct Context<'a> {
     pub form_state: FormState,
@@ -8,7 +8,9 @@ pub struct Context<'a> {
 }
 
 impl Context<'_> {
-    pub async fn store(&mut self, scope: Scope, key: String, value: String) -> Result<()> {
+    pub async fn store(&mut self, scope: StorageScope, key: impl ToString, value: impl ToString) -> Result<()> {
+        let key = key.to_string();
+        let value = value.to_string();
         send_response(
             self.stream,
             ServerToClientMessage::Store { scope, key, value },
@@ -16,7 +18,8 @@ impl Context<'_> {
         .await
     }
 
-    pub async fn redirect(&mut self, path: String) -> Result<()> {
+    pub async fn redirect(&mut self, path: impl ToString) -> Result<()> {
+        let path = path.to_string();
         send_response(self.stream, ServerToClientMessage::RedirectTo { path }).await
     }
 }

@@ -6,8 +6,12 @@ use async_std::{
 use futures::{select, stream::BoxStream, FutureExt};
 
 use pinhole_protocol::{
-    document::{Action, ClientToServerMessage, Document, FormState, Scope, ServerToClientMessage},
+    action::Action,
+    document::Document,
+    form_state::FormState,
+    messages::{ClientToServerMessage, ServerToClientMessage},
     network::{receive_response, send_request},
+    storage::StorageScope,
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
@@ -172,7 +176,7 @@ async fn session_loop(
                     }
                     ServerToClientMessage::Store { scope, key, value } => {
                       match scope {
-                        Scope::Session => { session_storage.insert(key, value); },
+                        StorageScope::Session => { session_storage.insert(key, value); },
                         _ => todo!("scope {:?}", scope)
                       }
                     }

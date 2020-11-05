@@ -1,5 +1,5 @@
 use pinhole::{
-    Action, ButtonProps, Context, Document, InputProps, Node, Render, Result, Route, Scope,
+    Action, ButtonProps, Context, Document, InputProps, Node, Render, Result, Route, StorageScope,
     Storage, TextProps,
 };
 
@@ -9,8 +9,8 @@ const SUBMIT_ACTION: &str = "submit";
 
 #[async_trait::async_trait]
 impl Route for IndexRoute {
-    fn path(&self) -> String {
-        "/".to_string()
+    fn path(&self) -> &'static str {
+        "/"
     }
 
     async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
@@ -19,9 +19,9 @@ impl Route for IndexRoute {
                 log::info!("Submit with form state: {:?}", context.form_state);
 
                 context
-                    .store(Scope::Session, "authenticated".to_string(), "1".to_string())
+                    .store(StorageScope::Session, "authenticated", "1")
                     .await?;
-                context.redirect("/todos".to_string()).await?;
+                context.redirect("/todos").await?;
             }
 
             _ => log::error!("Unknown action: {:?}", action),

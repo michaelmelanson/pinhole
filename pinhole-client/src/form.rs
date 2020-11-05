@@ -1,4 +1,4 @@
-use pinhole_protocol::document::{FormState as RemoteFormState, FormValue as RemoteFormValue};
+use pinhole_protocol::form_state::{FormState as RemoteFormState, FormValue as RemoteFormValue};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug)]

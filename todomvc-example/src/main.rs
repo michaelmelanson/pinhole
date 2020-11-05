@@ -4,7 +4,7 @@ mod routes;
 use pinhole::{Application, Result, Route};
 
 pub fn main() -> Result<()> {
-    pinhole::run(TodoApplication, "0.0.0.0:8080".to_string())
+    pinhole::run(TodoApplication, "0.0.0.0:8080")
 }
 
 #[derive(Copy, Clone)]

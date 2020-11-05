@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::document::Action;
+use crate::action::Action;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TextProps {

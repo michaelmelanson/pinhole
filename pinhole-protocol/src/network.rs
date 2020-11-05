@@ -1,6 +1,6 @@
 use async_std::{net::TcpStream, prelude::*};
 
-use crate::document::{ClientToServerMessage, ServerToClientMessage};
+use crate::messages::{ClientToServerMessage, ServerToClientMessage};
 
 use kv_log_macro as log;
 
