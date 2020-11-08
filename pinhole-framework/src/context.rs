@@ -1,8 +1,8 @@
 use crate::{Result, ServerToClientMessage, StorageScope};
-use pinhole_protocol::{network::send_response, storage::StateMap};
+use pinhole_protocol::{network::send_response, storage::{StateMap, StateValue}};
 
 pub struct Context<'a> {
-    pub state_map: StateMap,
+    pub storage: StateMap,
 
     pub(crate) stream: &'a mut async_std::net::TcpStream,
 }
@@ -12,10 +12,10 @@ impl Context<'_> {
         &mut self,
         scope: StorageScope,
         key: impl ToString,
-        value: impl ToString,
+        value: impl Into<StateValue>,
     ) -> Result<()> {
         let key = key.to_string();
-        let value = value.to_string();
+        let value = value.into();
         send_response(
             self.stream,
             ServerToClientMessage::Store { scope, key, value },

@@ -28,7 +28,7 @@ pub use pinhole_protocol::{
     node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
     storage::{StateMap, StateValue, StorageScope},
 };
-pub use route::{Render, Route, Storage};
+pub use route::{Render, Route};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -62,12 +62,12 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
             ClientToServerMessage::Action {
                 path,
                 action,
-                state_map,
+                storage,
             } => {
                 log::info!("Received action", {path: path, action: action});
                 if let Some(route) = application.route(path) {
                     let mut context = Context {
-                        state_map: state_map.clone(),
+                        storage: storage.clone(),
                         stream: &mut stream,
                     };
 

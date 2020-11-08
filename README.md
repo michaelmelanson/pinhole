@@ -95,7 +95,7 @@ It's currently only partly done, but when completed:
 
 * Data can be stored in one of three scopes: persistent (saved across app restarts), session (cleared after app restart), or local (cleared on page navigation). Only session storage is currently implemented.
 * Form elements persist their values in storage at the 'local' scope.
-* Stored data is sent to the server in **`Action`** messages. Actions can choose exactly which a set of they want sent, to avoid the problems HTTP has with cookie bloat (not yet implemented).
+* Stored data is sent to the server in **`Action`** messages. Actions can choose exactly which a set of they want sent, to avoid the problems HTTP has with cookie bloat.
 
 ### View layer
 

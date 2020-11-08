@@ -21,7 +21,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 
 #[derive(Debug)]
 pub enum NetworkSessionCommand {
-    Action { action: Action, state_map: StateMap },
+    Action { action: Action, storage: StateMap },
     Load { path: String },
 }
 
@@ -62,12 +62,12 @@ impl NetworkSession {
         }
     }
 
-    pub async fn action(&self, action: &Action, state_map: &StateMap) {
+    pub async fn action(&self, action: &Action, storage: &StateMap) {
         let action = action.clone();
         self.command_sender
             .send(NetworkSessionCommand::Action {
                 action,
-                state_map: state_map.clone(),
+                storage: storage.clone(),
             })
             .await;
     }
@@ -119,7 +119,7 @@ async fn session_loop(
     event_sender: Sender<NetworkSessionEvent>,
 ) -> Result<()> {
     let mut current_path: Option<String> = None;
-    let mut session_storage = HashMap::new();
+    let mut session_storage: StateMap = HashMap::new();
 
     async fn connect(address: &String) -> Result<TcpStream> {
         loop {
@@ -152,9 +152,9 @@ async fn session_loop(
                 if let Ok(command) = command {
                     log::info!("Received command from app", {command: command});
                   match command {
-                    NetworkSessionCommand::Action { action, state_map } => {
+                    NetworkSessionCommand::Action { action, storage } => {
                       let path = current_path.clone().expect("Can't fire actions without a path set");
-                      send_request(&mut stream, ClientToServerMessage::Action { path, action, state_map }).await?;
+                      send_request(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
                     },
                     NetworkSessionCommand::Load { path } => {
                       current_path = Some(path.clone());

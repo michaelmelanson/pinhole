@@ -1,23 +1,17 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    action::Action,
-    document::Document,
-    storage::{StateMap, StorageScope},
-};
+use crate::{action::Action, document::Document, storage::{StateMap, StateValue, StorageScope}};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServerMessage {
     Load {
         path: String,
-        storage: HashMap<String, String>,
+        storage: StateMap
     },
     Action {
         path: String,
         action: Action,
-        state_map: StateMap,
+        storage: StateMap,
     },
 }
 
@@ -32,7 +26,7 @@ pub enum ServerToClientMessage {
     Store {
         scope: StorageScope,
         key: String,
-        value: String,
+        value: StateValue,
     },
 }
 

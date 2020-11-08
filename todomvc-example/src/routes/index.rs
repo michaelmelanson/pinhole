@@ -1,7 +1,4 @@
-use pinhole::{
-    Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size,
-    Sizing, Storage, StorageScope, TextProps,
-};
+use pinhole::{Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size, Sizing, StateMap, StorageScope, TextProps};
 
 pub struct IndexRoute;
 
@@ -16,7 +13,7 @@ impl Route for IndexRoute {
     async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
         match action {
             Action { name, .. } if name == SUBMIT_ACTION => {
-                log::info!("Submit with state: {:?}", context.state_map);
+                log::info!("Submit with state: {:?}", context.storage);
 
                 context
                     .store(StorageScope::Session, "authenticated", "1")
@@ -30,7 +27,7 @@ impl Route for IndexRoute {
         Ok(())
     }
 
-    async fn render(&self, storage: &Storage) -> Render {
+    async fn render(&self, storage: &StateMap) -> Render {
         if storage.get("authenticated").is_some() {
             return Render::RedirectTo("/todos".to_string());
         }

@@ -1,9 +1,6 @@
 use maplit::hashmap;
 
-use pinhole::{
-    Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing,
-    Storage, TextProps,
-};
+use pinhole::{Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing, StateMap, TextProps};
 
 use crate::model::Todo;
 
@@ -22,7 +19,7 @@ impl Route for ListRoute {
         match action {
             Action { name, args, .. } if name == TODO_CHECKED => {
                 if let Some(id) = args.get(ID_KEY) {
-                    if let Some(value) = context.state_map.get(id) {
+                    if let Some(value) = context.storage.get(id) {
                         if value.boolean() {
                             log::info!("Task {:?} checked", id);
                         } else {
@@ -38,7 +35,7 @@ impl Route for ListRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &Storage) -> Render {
+    async fn render(&self, _storage: &StateMap) -> Render {
         let todos = vec![
             Todo {
                 id: "1".to_string(),
