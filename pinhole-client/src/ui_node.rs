@@ -3,10 +3,12 @@ use iced::{
     Column, Container, Length, Row, Space, Text, TextInput,
 };
 
-use crate::{stylesheet::Stylesheet, LocalFormState, LocalFormValue, PinholeMessage};
+use crate::{stylesheet::Stylesheet, PinholeMessage};
 use pinhole_protocol::{
     layout::{Layout, Position, Size},
     node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
+    storage::StateMap,
+    storage::StateValue,
 };
 
 pub enum UiNode {
@@ -41,7 +43,7 @@ impl UiNode {
     pub fn view(
         &mut self,
         stylesheet: &Stylesheet,
-        form_state: &LocalFormState,
+        state_map: &StateMap,
     ) -> iced::Element<PinholeMessage> {
         match self {
             UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
@@ -62,13 +64,13 @@ impl UiNode {
                 let id = id.clone();
                 let checked = *checked;
                 let on_change = on_change.clone();
-                let default_value = LocalFormValue::Boolean(checked);
-                let value = form_state.get(&id).unwrap_or(&default_value);
+                let default_value = StateValue::Boolean(checked);
+                let value = state_map.get(&id).unwrap_or(&default_value);
 
                 Checkbox::new(value.boolean(), label.clone(), move |value| {
                     PinholeMessage::FormValueChanged {
                         id: id.clone(),
-                        value: LocalFormValue::Boolean(value),
+                        value: StateValue::Boolean(value),
                         action: Some(on_change.clone()),
                     }
                 })
@@ -80,7 +82,7 @@ impl UiNode {
                 let mut elements = Vec::new();
 
                 for element in children.iter_mut() {
-                    elements.push(element.as_mut().view(stylesheet, form_state));
+                    elements.push(element.as_mut().view(stylesheet, state_map));
                 }
 
                 let container = Container::new(Column::with_children(elements))
@@ -118,9 +120,9 @@ impl UiNode {
                 },
                 state,
             ) => {
-                let value = match form_state.get(id) {
+                let value = match state_map.get(id) {
                     Some(value) => value.clone(),
-                    None => LocalFormValue::String("".to_string()),
+                    None => StateValue::String("".to_string()),
                 };
 
                 let id = id.clone();
@@ -129,7 +131,7 @@ impl UiNode {
                     TextInput::new(state, placeholder, &value.string(), move |new_value| {
                         PinholeMessage::FormValueChanged {
                             id: id.clone(),
-                            value: LocalFormValue::String(new_value),
+                            value: StateValue::String(new_value),
                             action: None,
                         }
                     })

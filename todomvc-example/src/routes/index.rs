@@ -15,8 +15,8 @@ impl Route for IndexRoute {
 
     async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
         match action {
-            Action { name, args: _ } if name == SUBMIT_ACTION => {
-                log::info!("Submit with form state: {:?}", context.form_state);
+            Action { name, .. } if name == SUBMIT_ACTION => {
+                log::info!("Submit with state: {:?}", context.state_map);
 
                 context
                     .store(StorageScope::Session, "authenticated", "1")
@@ -66,7 +66,10 @@ fn signin() -> Document {
             .boxed(),
             Node::Button(ButtonProps {
                 label: "Sign in".to_string(),
-                on_click: Action::named(SUBMIT_ACTION),
+                on_click: Action::named(
+                    SUBMIT_ACTION,
+                    vec!["email".to_string(), "password".to_string()],
+                ),
             })
             .boxed(),
         ],

@@ -10,9 +10,9 @@ use kv_log_macro as log;
 use pinhole_protocol::{
     action::Action,
     document::Document,
-    form_state::FormState,
     messages::{ClientToServerMessage, ServerToClientMessage},
     network::{receive_response, send_request},
+    storage::StateMap,
     storage::StorageScope,
 };
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -21,13 +21,8 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 
 #[derive(Debug)]
 pub enum NetworkSessionCommand {
-    Action {
-        action: Action,
-        form_state: FormState,
-    },
-    Load {
-        path: String,
-    },
+    Action { action: Action, state_map: StateMap },
+    Load { path: String },
 }
 
 impl ::log::kv::ToValue for NetworkSessionCommand {
@@ -67,12 +62,12 @@ impl NetworkSession {
         }
     }
 
-    pub async fn action(&self, action: &Action, form_state: &FormState) {
+    pub async fn action(&self, action: &Action, state_map: &StateMap) {
         let action = action.clone();
         self.command_sender
             .send(NetworkSessionCommand::Action {
                 action,
-                form_state: form_state.clone(),
+                state_map: state_map.clone(),
             })
             .await;
     }
@@ -157,9 +152,9 @@ async fn session_loop(
                 if let Ok(command) = command {
                     log::info!("Received command from app", {command: command});
                   match command {
-                    NetworkSessionCommand::Action { action, form_state } => {
+                    NetworkSessionCommand::Action { action, state_map } => {
                       let path = current_path.clone().expect("Can't fire actions without a path set");
-                      send_request(&mut stream, ClientToServerMessage::Action { path, action, form_state }).await?;
+                      send_request(&mut stream, ClientToServerMessage::Action { path, action, state_map }).await?;
                     },
                     NetworkSessionCommand::Load { path } => {
                       current_path = Some(path.clone());

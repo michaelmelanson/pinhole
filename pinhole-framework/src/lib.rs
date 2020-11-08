@@ -26,7 +26,7 @@ pub use pinhole_protocol::{
     layout::{Layout, Position, Size, Sizing},
     messages::ServerToClientMessage,
     node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
-    storage::StorageScope,
+    storage::{StateMap, StateValue, StorageScope},
 };
 pub use route::{Render, Route, Storage};
 
@@ -62,12 +62,12 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
             ClientToServerMessage::Action {
                 path,
                 action,
-                form_state,
+                state_map,
             } => {
                 log::info!("Received action", {path: path, action: action});
                 if let Some(route) = application.route(path) {
                     let mut context = Context {
-                        form_state: form_state.clone(),
+                        state_map: state_map.clone(),
                         stream: &mut stream,
                     };
 

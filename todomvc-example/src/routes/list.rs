@@ -18,10 +18,18 @@ impl Route for ListRoute {
         "/todos"
     }
 
-    async fn action<'a>(&self, action: &Action, _context: &mut Context<'a>) -> Result<()> {
+    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
         match action {
-            Action { name, args } if name == TODO_CHECKED => {
-                log::info!("Task {:?} checked", args.get(ID_KEY));
+            Action { name, args, .. } if name == TODO_CHECKED => {
+                if let Some(id) = args.get(ID_KEY) {
+                    if let Some(value) = context.state_map.get(id) {
+                        if value.boolean() {
+                            log::info!("Task {:?} checked", id);
+                        } else {
+                            log::info!("Task {:?} unchecked", id);
+                        }
+                    }
+                }
             }
 
             _ => log::error!("Unknown action: {:?}", action),
@@ -67,6 +75,7 @@ fn list(todos: &Vec<Todo>) -> Document {
                         let action = Action::new(
                             TODO_CHECKED,
                             hashmap! { ID_KEY.to_string() => t.id.clone() },
+                            vec![t.id.clone()],
                         );
                         Node::Checkbox(CheckboxProps {
                             id: t.id.clone(),

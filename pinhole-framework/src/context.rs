@@ -1,8 +1,8 @@
 use crate::{Result, ServerToClientMessage, StorageScope};
-use pinhole_protocol::{form_state::FormState, network::send_response};
+use pinhole_protocol::{network::send_response, storage::StateMap};
 
 pub struct Context<'a> {
-    pub form_state: FormState,
+    pub state_map: StateMap,
 
     pub(crate) stream: &'a mut async_std::net::TcpStream,
 }

@@ -1,5 +1,4 @@
 #![recursion_limit = "1024"]
-mod form;
 mod network;
 mod stylesheet;
 mod ui_node;
@@ -12,9 +11,8 @@ use iced::{
     Container, Length, Settings, Subscription,
 };
 
-use form::{convert_form_state, LocalFormState, LocalFormValue};
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
-use pinhole_protocol::{action::Action, node::TextProps};
+use pinhole_protocol::{action::Action, node::TextProps, storage::StateMap, storage::StateValue};
 use std::{collections::HashMap, sync::Arc};
 use stylesheet::Stylesheet;
 use ui_node::UiNode;
@@ -42,7 +40,7 @@ pub enum PinholeMessage {
     PerformAction(Action),
     FormValueChanged {
         id: String,
-        value: LocalFormValue,
+        value: StateValue,
         action: Option<Action>,
     },
 }
@@ -57,7 +55,7 @@ struct Pinhole {
 struct UiContext {
     button_state: HashMap<String, ButtonState>,
     text_input_state: HashMap<String, TextInputState>,
-    form_state: LocalFormState,
+    state_map: StateMap,
 }
 
 impl Application for Pinhole {
@@ -77,7 +75,7 @@ impl Application for Pinhole {
                 network_session: Arc::new(network_session),
                 document,
                 context: UiContext {
-                    form_state: HashMap::new(),
+                    state_map: StateMap::new(),
                     button_state: HashMap::new(),
                     text_input_state: HashMap::new(),
                 },
@@ -116,17 +114,17 @@ impl Application for Pinhole {
             PinholeMessage::PerformAction(action) => {
                 task::block_on(
                     self.network_session
-                        .action(&action, &convert_form_state(&self.context.form_state)),
+                        .action(&action, &self.context.state_map),
                 );
             }
             PinholeMessage::FormValueChanged { id, value, action } => {
                 log::info!("Form value changed", { id: id, value: value, action: action });
-                self.context.form_state.insert(id, value);
+                self.context.state_map.insert(id, value);
 
                 if let Some(action) = action {
                     task::block_on(
                         self.network_session
-                            .action(&action, &convert_form_state(&self.context.form_state)),
+                            .action(&action, &self.context.state_map),
                     );
                 }
             }
@@ -137,7 +135,7 @@ impl Application for Pinhole {
 
     fn view(&mut self) -> iced::Element<Self::Message> {
         let stylesheet = Stylesheet;
-        Container::new(self.document.view(&stylesheet, &self.context.form_state))
+        Container::new(self.document.view(&stylesheet, &self.context.state_map))
             .width(Length::Fill)
             .height(Length::Fill)
             .align_x(Align::Center)

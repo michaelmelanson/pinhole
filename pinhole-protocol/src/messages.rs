@@ -2,7 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{action::Action, document::Document, form_state::FormState, storage::StorageScope};
+use crate::{
+    action::Action,
+    document::Document,
+    storage::{StateMap, StorageScope},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServerMessage {
@@ -13,7 +17,7 @@ pub enum ClientToServerMessage {
     Action {
         path: String,
         action: Action,
-        form_state: FormState,
+        state_map: StateMap,
     },
 }
 
