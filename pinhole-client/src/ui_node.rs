@@ -1,6 +1,9 @@
-use iced::{Align, Button, Checkbox, Column, Container, Length, Row, Space, Text, TextInput, button::State as ButtonState, text_input::State as TextInputState};
+use iced::{
+    button::State as ButtonState, text_input::State as TextInputState, Align, Button, Checkbox,
+    Column, Container, Length, Row, Space, Text, TextInput,
+};
 
-use crate::{LocalFormState, LocalFormValue, PinholeMessage};
+use crate::{stylesheet::Stylesheet, LocalFormState, LocalFormValue, PinholeMessage};
 use pinhole_protocol::{
     layout::{Layout, Position, Size},
     node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
@@ -35,12 +38,17 @@ impl From<Node> for UiNode {
 }
 
 impl UiNode {
-    pub fn view(&mut self, form_state: &LocalFormState) -> iced::Element<PinholeMessage> {
+    pub fn view(
+        &mut self,
+        stylesheet: &Stylesheet,
+        form_state: &LocalFormState,
+    ) -> iced::Element<PinholeMessage> {
         match self {
             UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
             UiNode::Text(TextProps { text }) => Text::new(text.clone()).into(),
             UiNode::Button(ButtonProps { label, on_click }, state) => {
                 Button::new::<Text>(state, Text::new(label.clone()).into())
+                    .style(stylesheet)
                     .on_press(PinholeMessage::PerformAction(on_click.clone()))
                     .into()
             }
@@ -64,6 +72,7 @@ impl UiNode {
                         action: Some(on_change.clone()),
                     }
                 })
+                .style(stylesheet)
                 .into()
             }
 
@@ -71,42 +80,31 @@ impl UiNode {
                 let mut elements = Vec::new();
 
                 for element in children.iter_mut() {
-                    elements.push(element.as_mut().view(form_state));
+                    elements.push(element.as_mut().view(stylesheet, form_state));
                 }
 
-                let mut container = Container::new(Column::with_children(elements));
-
-                container = container.align_x(match layout.horizontal.position {
-                    Position::Centre => Align::Center,
-                    Position::Start => Align::Start,
-                    Position::End => Align::End,
-                });
-
-                match layout.horizontal.size {
-                    Size::Auto => {}
-                    Size::Fixed(size) => {
-                        container = container.width(Length::Units(size));
-                    }
-                    Size::Fill => {
-                        container = container.width(Length::Fill);
-                    }
-                }
-
-                container = container.align_y(match layout.vertical.position {
-                    Position::Centre => Align::Center,
-                    Position::Start => Align::Start,
-                    Position::End => Align::End,
-                });
-
-                match layout.vertical.size {
-                    Size::Auto => {}
-                    Size::Fixed(size) => {
-                        container = container.height(Length::Units(size));
-                    }
-                    Size::Fill => {
-                        container = container.height(Length::Fill);
-                    }
-                }
+                let container = Container::new(Column::with_children(elements))
+                    .style(stylesheet)
+                    .align_x(match layout.horizontal.position {
+                        Position::Centre => Align::Center,
+                        Position::Start => Align::Start,
+                        Position::End => Align::End,
+                    })
+                    .align_y(match layout.vertical.position {
+                        Position::Centre => Align::Center,
+                        Position::Start => Align::Start,
+                        Position::End => Align::End,
+                    })
+                    .width(match layout.horizontal.size {
+                        Size::Auto => Length::Shrink,
+                        Size::Fixed(size) => Length::Units(size),
+                        Size::Fill => Length::Fill,
+                    })
+                    .height(match layout.vertical.size {
+                        Size::Auto => Length::Shrink,
+                        Size::Fixed(size) => Length::Units(size),
+                        Size::Fill => Length::Fill,
+                    });
 
                 container.into()
             }
@@ -134,13 +132,17 @@ impl UiNode {
                             value: LocalFormValue::String(new_value),
                             action: None,
                         }
-                    });
+                    })
+                    .padding(5)
+                    .style(stylesheet);
 
                 if *password {
                     input = input.password();
                 }
 
-                Row::with_children(vec![Text::new(label.clone()).into(), input.into()]).into()
+                Row::with_children(vec![Text::new(label.clone()).into(), input.into()])
+                    .align_items(Align::Center)
+                    .into()
             }
         }
     }

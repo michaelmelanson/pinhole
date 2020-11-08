@@ -42,8 +42,8 @@ impl Route for IndexRoute {
 fn signin() -> Document {
     Document(Node::Container {
         layout: Layout::default()
-            .horizontal(Sizing::default().centred().size(Size::Fixed(200)))
-            .vertical(Sizing::default().centred().size(Size::Fixed(300))),
+            .horizontal(Sizing::default().centred().size(Size::Fixed(300)))
+            .vertical(Sizing::default().centred().size(Size::Fixed(200))),
 
         children: vec![
             Node::Text(TextProps {

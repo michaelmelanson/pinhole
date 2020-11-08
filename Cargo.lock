@@ -1894,6 +1894,7 @@ dependencies = [
  "futures",
  "iced",
  "iced_native",
+ "iced_style",
  "iced_wgpu",
  "iced_winit",
  "kv-log-macro",

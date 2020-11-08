@@ -51,8 +51,8 @@ impl Route for ListRoute {
 fn list(todos: &Vec<Todo>) -> Document {
     Document(Node::Container {
         layout: Layout::default()
-            .horizontal(Sizing::default().centred().size(Size::Fixed(200)))
-            .vertical(Sizing::default().centred().size(Size::Fixed(300))),
+            .horizontal(Sizing::default().centred().size(Size::Fill))
+            .vertical(Sizing::default().centred().size(Size::Fill)),
 
         children: vec![
             Node::Text(TextProps {

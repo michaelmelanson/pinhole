@@ -13,6 +13,7 @@ iced = { git = "https://github.com/hecrj/iced.git", features = ['async-std'] }
 iced_wgpu = { git = "https://github.com/hecrj/iced.git" }
 iced_winit = { git = "https://github.com/hecrj/iced.git" }
 iced_native = { git = "https://github.com/hecrj/iced.git" }
+iced_style = { git = "https://github.com/hecrj/iced.git" }
 futures = "*"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"

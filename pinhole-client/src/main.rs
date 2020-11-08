@@ -1,6 +1,7 @@
 #![recursion_limit = "1024"]
 mod form;
 mod network;
+mod stylesheet;
 mod ui_node;
 
 use async_std::task;
@@ -15,6 +16,7 @@ use form::{convert_form_state, LocalFormState, LocalFormValue};
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
 use pinhole_protocol::{action::Action, node::TextProps};
 use std::{collections::HashMap, sync::Arc};
+use stylesheet::Stylesheet;
 use ui_node::UiNode;
 
 fn main() -> iced::Result {
@@ -35,7 +37,7 @@ fn main() -> iced::Result {
 #[derive(Debug, Clone)]
 pub enum PinholeMessage {
     StartNavigation(String),
-    LoadStarted(()),
+    LoadStarted,
     NetworkSessionEvent(NetworkSessionEvent),
     PerformAction(Action),
     FormValueChanged {
@@ -100,9 +102,9 @@ impl Application for Pinhole {
         match message {
             PinholeMessage::StartNavigation(path) => {
                 self.network_session.load(&path);
-                command = Command::perform(async {}, PinholeMessage::LoadStarted)
+                command = Command::perform(async {}, |_| PinholeMessage::LoadStarted)
             }
-            PinholeMessage::LoadStarted(()) => {
+            PinholeMessage::LoadStarted => {
                 log::info!("Load started");
             }
             PinholeMessage::NetworkSessionEvent(event) => match event {
@@ -134,11 +136,12 @@ impl Application for Pinhole {
     }
 
     fn view(&mut self) -> iced::Element<Self::Message> {
-        Container::new(self.document.view(&self.context.form_state))
+        let stylesheet = Stylesheet;
+        Container::new(self.document.view(&stylesheet, &self.context.form_state))
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(Align::Start)
-            .align_y(Align::Start)
+            .align_x(Align::Center)
+            .align_y(Align::Center)
             .into()
     }
 }

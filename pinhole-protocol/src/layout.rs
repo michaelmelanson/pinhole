@@ -74,6 +74,6 @@ pub enum Size {
 
 impl Default for Size {
     fn default() -> Self {
-        Size::Auto
+        Size::Fill
     }
 }
