@@ -1,5 +1,8 @@
 use crate::{Result, ServerToClientMessage, StorageScope};
-use pinhole_protocol::{network::send_response, storage::{StateMap, StateValue}};
+use pinhole_protocol::{
+    network::send_response,
+    storage::{StateMap, StateValue},
+};
 
 pub struct Context<'a> {
     pub storage: StateMap,

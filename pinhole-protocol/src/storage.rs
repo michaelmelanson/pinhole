@@ -49,15 +49,15 @@ impl From<bool> for StateValue {
 }
 
 impl From<&str> for StateValue {
-  fn from(value: &str) -> Self {
-      StateValue::String(value.to_string())
-  }
-} 
+    fn from(value: &str) -> Self {
+        StateValue::String(value.to_string())
+    }
+}
 
 impl From<String> for StateValue {
-  fn from(value: String) -> Self {
-      StateValue::String(value)
-  }
-} 
+    fn from(value: String) -> Self {
+        StateValue::String(value)
+    }
+}
 
 pub type StateMap = HashMap<String, StateValue>;

@@ -1,13 +1,16 @@
 use maplit::hashmap;
 
-use pinhole::{Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing, StateMap, TextProps};
+use pinhole::{
+    Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing,
+    StateMap, TextProps,
+};
 
 use crate::model::Todo;
 
 pub struct ListRoute;
 
-const TODO_CHECKED: &str = "checked";
-const ID_KEY: &str = "id";
+const TASK_CHECKED: &str = "checked";
+const TASK_ID_KEY: &str = "id";
 
 #[async_trait::async_trait]
 impl Route for ListRoute {
@@ -17,8 +20,8 @@ impl Route for ListRoute {
 
     async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
         match action {
-            Action { name, args, .. } if name == TODO_CHECKED => {
-                if let Some(id) = args.get(ID_KEY) {
+            Action { name, args, .. } if name == TASK_CHECKED => {
+                if let Some(id) = args.get(TASK_ID_KEY) {
                     if let Some(value) = context.storage.get(id) {
                         if value.boolean() {
                             log::info!("Task {:?} checked", id);
@@ -69,16 +72,15 @@ fn list(todos: &Vec<Todo>) -> Document {
                 children: todos
                     .iter()
                     .map(|t| {
-                        let action = Action::new(
-                            TODO_CHECKED,
-                            hashmap! { ID_KEY.to_string() => t.id.clone() },
-                            vec![t.id.clone()],
-                        );
                         Node::Checkbox(CheckboxProps {
                             id: t.id.clone(),
                             label: t.text.clone(),
                             checked: t.done,
-                            on_change: action,
+                            on_change: Action::new(
+                                TASK_CHECKED,
+                                hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
+                                vec![t.id.clone()],
+                            ),
                         })
                         .boxed()
                     })

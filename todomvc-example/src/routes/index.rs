@@ -1,4 +1,7 @@
-use pinhole::{Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size, Sizing, StateMap, StorageScope, TextProps};
+use pinhole::{
+    Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size,
+    Sizing, StateMap, StorageScope, TextProps,
+};
 
 pub struct IndexRoute;
 

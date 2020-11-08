@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{action::Action, document::Document, storage::{StateMap, StateValue, StorageScope}};
+use crate::{
+    action::Action,
+    document::Document,
+    storage::{StateMap, StateValue, StorageScope},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientToServerMessage {
     Load {
         path: String,
-        storage: StateMap
+        storage: StateMap,
     },
     Action {
         path: String,
