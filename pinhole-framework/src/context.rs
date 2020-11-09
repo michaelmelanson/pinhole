@@ -1,6 +1,6 @@
 use crate::{Result, ServerToClientMessage, StorageScope};
 use pinhole_protocol::{
-    network::send_response,
+    network::send_message_to_client,
     storage::{StateMap, StateValue},
 };
 
@@ -19,7 +19,7 @@ impl Context<'_> {
     ) -> Result<()> {
         let key = key.to_string();
         let value = value.into();
-        send_response(
+        send_message_to_client(
             self.stream,
             ServerToClientMessage::Store { scope, key, value },
         )
@@ -28,6 +28,6 @@ impl Context<'_> {
 
     pub async fn redirect(&mut self, path: impl ToString) -> Result<()> {
         let path = path.to_string();
-        send_response(self.stream, ServerToClientMessage::RedirectTo { path }).await
+        send_message_to_client(self.stream, ServerToClientMessage::RedirectTo { path }).await
     }
 }

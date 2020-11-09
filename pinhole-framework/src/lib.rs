@@ -13,10 +13,7 @@ use async_std::{
     task,
 };
 
-use pinhole_protocol::{
-    messages::ClientToServerMessage,
-    network::{receive_request, send_response},
-};
+use pinhole_protocol::{messages::ClientToServerMessage, network::{receive_client_message, send_message_to_client}};
 
 pub use application::Application;
 pub use context::Context;
@@ -57,7 +54,7 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
         address: format!("{:?}", stream.peer_addr()?)
     });
 
-    while let Some(ref request) = receive_request(&mut stream).await? {
+    while let Some(ref request) = receive_client_message(&mut stream).await? {
         match request {
             ClientToServerMessage::Action {
                 path,
@@ -81,10 +78,10 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
                         Render::Document(document) => {
-                            send_response(&mut stream, ServerToClientMessage::Render { document })
+                            send_message_to_client(&mut stream, ServerToClientMessage::Render { document })
                         }
                         Render::RedirectTo(path) => {
-                            send_response(&mut stream, ServerToClientMessage::RedirectTo { path })
+                            send_message_to_client(&mut stream, ServerToClientMessage::RedirectTo { path })
                         }
                     }
                     .await?

@@ -11,7 +11,7 @@ use pinhole_protocol::{
     action::Action,
     document::Document,
     messages::{ClientToServerMessage, ServerToClientMessage},
-    network::{receive_response, send_request},
+    network::{receive_server_message, send_message_to_server},
     storage::StateMap,
     storage::StorageScope,
 };
@@ -143,7 +143,7 @@ async fn session_loop(
 
         if let Some(path) = current_path.clone() {
             let storage = session_storage.clone();
-            send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
         }
 
         'connection: loop {
@@ -151,23 +151,23 @@ async fn session_loop(
               command = command_receiver.recv().fuse() => {
                 if let Ok(command) = command {
                     log::info!("Received command from app", {command: command});
-                  match command {
-                    NetworkSessionCommand::Action { action, storage } => {
-                      let path = current_path.clone().expect("Can't fire actions without a path set");
-                      send_request(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
-                    },
-                    NetworkSessionCommand::Load { path } => {
-                      current_path = Some(path.clone());
-                      let storage = session_storage.clone();
-                      send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+                    match command {
+                        NetworkSessionCommand::Action { action, storage } => {
+                            let path = current_path.clone().expect("Can't fire actions without a path set");
+                            send_message_to_server(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
+                        },
+                        NetworkSessionCommand::Load { path } => {
+                            current_path = Some(path.clone());
+                            let storage = session_storage.clone();
+                            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+                        }
                     }
-                  }
                 } else {
                   break 'main;
                 }
               },
 
-              message = receive_response(&mut stream).fuse() => {
+              message = receive_server_message(&mut stream).fuse() => {
                 if let Some(message) = message? {
                 log::info!("Received message from server", {message: message});
                   match message {
@@ -177,7 +177,7 @@ async fn session_loop(
                     ServerToClientMessage::RedirectTo { path } => {
                       current_path = Some(path.clone());
                       let storage = session_storage.clone();
-                      send_request(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+                      send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
                     }
                     ServerToClientMessage::Store { scope, key, value } => {
                       match scope {
