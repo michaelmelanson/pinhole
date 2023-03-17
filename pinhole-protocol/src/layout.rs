@@ -68,7 +68,7 @@ impl Default for Position {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Size {
     Auto,
-    Fixed(u16),
+    Fixed(f32),
     Fill,
 }
 

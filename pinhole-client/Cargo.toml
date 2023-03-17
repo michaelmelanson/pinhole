@@ -2,18 +2,14 @@
 name = "pinhole-client"
 version = "0.1.0"
 authors = ["Michael Melanson <michael@michaelmelanson.net>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 pinhole-protocol = { path = "../pinhole-protocol" }
 async-std = { version = "1.7", features = ['unstable'] }
-iced = { git = "https://github.com/hecrj/iced.git", features = ['async-std'] }
-iced_wgpu = { git = "https://github.com/hecrj/iced.git" }
-iced_winit = { git = "https://github.com/hecrj/iced.git" }
-iced_native = { git = "https://github.com/hecrj/iced.git" }
-iced_style = { git = "https://github.com/hecrj/iced.git" }
+iced = { version = "0.8", features = ['async-std'] }
 futures = "*"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"

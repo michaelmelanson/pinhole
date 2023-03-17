@@ -1,39 +1,43 @@
-use iced::{Background, Color, Vector};
+use iced::{Background, Color, Vector, widget::button};
+
+
 
 pub struct ButtonStylesheet;
-impl iced_style::button::StyleSheet for ButtonStylesheet {
-    fn active(&self) -> iced::button::Style {
-        iced_style::button::Style {
+impl button::StyleSheet for ButtonStylesheet {
+    type Style = ();
+
+    fn active(&self, _style: &Self::Style) -> button::Appearance {
+        button::Appearance {
             background: Some(Background::Color(Color::WHITE)),
             border_color: Color::from_rgba(0., 0., 0., 0.3),
-            border_radius: 3,
-            border_width: 1,
+            border_radius: 3.,
+            border_width: 1.,
             shadow_offset: Vector::new(1., 1.),
             ..Default::default()
         }
     }
 
-    fn hovered(&self) -> iced::button::Style {
-        let active = self.active();
+    fn hovered(&self, style: &Self::Style) -> button::Appearance {
+        let active = self.active(style);
 
-        iced::button::Style {
+        button::Appearance {
             shadow_offset: active.shadow_offset + iced::Vector::new(0.0, 1.0),
             ..active
         }
     }
 
-    fn pressed(&self) -> iced::button::Style {
-        let active = self.active();
-        iced::button::Style {
+    fn pressed(&self, style: &Self::Style) -> button::Appearance {
+        let active = self.active(style);
+        button::Appearance {
             shadow_offset: iced::Vector::default(),
             ..active
         }
     }
 
-    fn disabled(&self) -> iced::button::Style {
-        let active = self.active();
+    fn disabled(&self, style: &Self::Style) -> button::Appearance {
+        let active = self.active(style);
 
-        iced::button::Style {
+        button::Appearance {
             shadow_offset: iced::Vector::default(),
             background: active.background.map(|background| match background {
                 iced::Background::Color(color) => iced::Background::Color(Color {

@@ -1,34 +1,36 @@
-use iced::Color;
+use iced::{Color, widget::text_input, Background};
 
 pub struct TextInputStylesheet;
-impl iced_style::text_input::StyleSheet for TextInputStylesheet {
-    fn active(&self) -> iced::text_input::Style {
-        iced_style::text_input::Style {
-            border_width: 1,
+impl text_input::StyleSheet for TextInputStylesheet {
+    type Style = ();
+
+    fn active(&self, _style: &Self::Style) -> text_input::Appearance {
+        text_input::Appearance {
             border_color: Color::from_rgba(0., 0., 0., 0.3),
-            border_radius: 3,
-            ..Default::default()
+            border_width: 1.,
+            border_radius: 3.,
+            background: Background::Color(Color::WHITE)
         }
     }
 
-    fn focused(&self) -> iced::text_input::Style {
-        iced_style::text_input::Style {
-            border_width: 1,
+    fn focused(&self, _style: &Self::Style) -> text_input::Appearance {
+        text_input::Appearance {
             border_color: Color::from_rgba(0., 0., 0., 0.6),
-            border_radius: 3,
-            ..Default::default()
+            border_width: 1.,
+            border_radius: 3.,
+            background: Background::Color(Color::WHITE)
         }
     }
 
-    fn placeholder_color(&self) -> Color {
+    fn placeholder_color(&self, _style: &Self::Style) -> Color {
         Color::from_rgba(0.0, 0.0, 0.0, 0.3)
     }
 
-    fn value_color(&self) -> Color {
+    fn value_color(&self, _style: &Self::Style) -> Color {
         Color::from_rgba(0.0, 0.0, 0.0, 1.0)
     }
 
-    fn selection_color(&self) -> Color {
+    fn selection_color(&self, _style: &Self::Style) -> Color {
         Color::from_rgba(0.0, 0.0, 1.0, 0.5)
     }
 }

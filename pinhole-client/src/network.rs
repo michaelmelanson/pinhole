@@ -1,6 +1,6 @@
 use async_std::{
     net::TcpStream,
-    sync::{channel, Receiver, Sender},
+    channel::{self, Receiver, Sender},
     task,
 };
 use futures::{select, stream::BoxStream, FutureExt};
@@ -45,8 +45,8 @@ pub struct NetworkSession {
 
 impl NetworkSession {
     pub fn new(address: String) -> NetworkSession {
-        let (command_sender, command_receiver) = channel::<NetworkSessionCommand>(10);
-        let (event_sender, event_receiver) = channel::<NetworkSessionEvent>(10);
+        let (command_sender, command_receiver) = channel::bounded::<NetworkSessionCommand>(10);
+        let (event_sender, event_receiver) = channel::bounded::<NetworkSessionEvent>(10);
 
         let address = address.clone();
         task::spawn(session_loop(
@@ -62,24 +62,26 @@ impl NetworkSession {
         }
     }
 
-    pub async fn action(&self, action: &Action, state_map: &StateMap) {
+    pub async fn action(&self, action: &Action, state_map: &StateMap) -> Result<()> {
         let action = action.clone();
         self.command_sender
             .send(NetworkSessionCommand::Action {
                 action,
                 state_map: state_map.clone(),
             })
-            .await;
+            .await?;
+
+        Ok(())
     }
 
-    pub fn load(&self, path: &str) {
+    pub fn load(&self, path: &str) -> Result<()> {
         let path = path.to_string();
 
-        task::block_on(async {
+        task::block_on(
             self.command_sender
-                .send(NetworkSessionCommand::Load { path })
-                .await;
-        });
+                .send(NetworkSessionCommand::Load { path }))?;
+
+        Ok(())
     }
 }
 
@@ -96,7 +98,7 @@ impl NetworkSessionSubscription {
     }
 }
 
-impl<H, I> iced_native::subscription::Recipe<H, I> for NetworkSessionSubscription
+impl<H, I> iced::subscription::Recipe<H, I> for NetworkSessionSubscription
 where
     H: std::hash::Hasher,
 {

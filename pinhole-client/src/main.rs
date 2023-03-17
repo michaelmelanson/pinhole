@@ -7,8 +7,8 @@ use async_std::task;
 use kv_log_macro as log;
 
 use iced::{
-    button::State as ButtonState, text_input::State as TextInputState, Align, Application, Command,
-    Container, Length, Settings, Subscription,
+    Application, Command,
+    widget::Container, Length, Settings, Subscription, Theme, alignment::{Horizontal, Vertical},
 };
 
 use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
@@ -16,6 +16,25 @@ use pinhole_protocol::{action::Action, node::TextProps, storage::StateMap, stora
 use std::{collections::HashMap, sync::Arc};
 use stylesheet::Stylesheet;
 use ui_node::UiNode;
+
+#[derive(Clone, Default)]
+pub enum ButtonState {
+    #[default]
+    Pressed
+}
+
+#[derive(Clone, Default)]
+pub enum CheckboxState {
+    Checked,
+
+    #[default]
+    Unchecked
+}
+
+#[derive(Clone, Default)]
+pub struct TextInputState {
+//    text: String
+}
 
 fn main() -> iced::Result {
     femme::with_level(::log::LevelFilter::Info);
@@ -27,7 +46,7 @@ fn main() -> iced::Result {
             size: (600, 400),
             ..Default::default()
         },
-        default_text_size: 14,
+        default_text_size: 14.,
         ..Default::default()
     })
 }
@@ -62,6 +81,7 @@ impl Application for Pinhole {
     type Executor = iced::executor::Default;
     type Message = PinholeMessage;
     type Flags = ();
+    type Theme = Theme;
 
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let address = "127.0.0.1:8080".to_string();
@@ -133,13 +153,13 @@ impl Application for Pinhole {
         command
     }
 
-    fn view(&mut self) -> iced::Element<Self::Message> {
+    fn view(&self) -> iced::Element<Self::Message> {
         let stylesheet = Stylesheet;
         Container::new(self.document.view(&stylesheet, &self.context.state_map))
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(Align::Center)
-            .align_y(Align::Center)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
             .into()
     }
 }

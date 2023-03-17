@@ -1,21 +1,24 @@
-use iced::{Background, Color};
+use iced::{Background, Color, widget::checkbox};
 
 pub struct CheckboxStylesheet;
-impl iced_style::checkbox::StyleSheet for CheckboxStylesheet {
-    fn active(&self, _is_checked: bool) -> iced::checkbox::Style {
-        iced::checkbox::Style {
+impl checkbox::StyleSheet for CheckboxStylesheet {
+    type Style = ();
+
+    fn active(&self, _style: &Self::Style, _is_checked: bool) -> checkbox::Appearance {
+        checkbox::Appearance {
             background: Background::Color(Color::from_rgb(0.95, 0.95, 0.95)),
-            checkmark_color: Color::from_rgb(0.3, 0.3, 0.3),
-            border_radius: 5,
-            border_width: 1,
+            icon_color: Color::from_rgb(0.3, 0.3, 0.3),
+            text_color: Some(Color::from_rgb(0.3, 0.3, 0.3)),
+            border_radius: 5.,
+            border_width: 1.,
             border_color: Color::from_rgb(0.6, 0.6, 0.6),
         }
     }
 
-    fn hovered(&self, is_checked: bool) -> iced::checkbox::Style {
-        iced::checkbox::Style {
+    fn hovered(&self, style: &Self::Style, is_checked: bool) -> checkbox::Appearance {
+        checkbox::Appearance {
             background: Background::Color(Color::from_rgb(0.90, 0.90, 0.90)),
-            ..self.active(is_checked)
+            ..self.active(style, is_checked)
         }
     }
 }
