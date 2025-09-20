@@ -6,31 +6,13 @@ mod ui_node;
 use async_std::task;
 use kv_log_macro as log;
 
-use iced::{
-    button::State as ButtonState, text_input::State as TextInputState, Align, Application, Command,
-    Container, Length, Settings, Subscription,
-};
+use iced::{widget::Container, Alignment, Length, Subscription, Task};
 
-use network::{NetworkSession, NetworkSessionEvent, NetworkSessionSubscription};
+use network::{NetworkSession, NetworkSessionEvent};
 use pinhole_protocol::{action::Action, node::TextProps, storage::StateMap, storage::StateValue};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use stylesheet::Stylesheet;
 use ui_node::UiNode;
-
-fn main() -> iced::Result {
-    femme::with_level(::log::LevelFilter::Info);
-
-    log::info!("📌 Pinhole starting up...");
-
-    Pinhole::run(Settings {
-        window: iced::window::Settings {
-            size: (600, 400),
-            ..Default::default()
-        },
-        default_text_size: 14,
-        ..Default::default()
-    })
-}
 
 #[derive(Debug, Clone)]
 pub enum PinholeMessage {
@@ -53,17 +35,11 @@ struct Pinhole {
 
 #[derive(Clone)]
 struct UiContext {
-    button_state: HashMap<String, ButtonState>,
-    text_input_state: HashMap<String, TextInputState>,
     state_map: StateMap,
 }
 
-impl Application for Pinhole {
-    type Executor = iced::executor::Default;
-    type Message = PinholeMessage;
-    type Flags = ();
-
-    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+impl Pinhole {
+    fn new() -> (Self, iced::Task<PinholeMessage>) {
         let address = "127.0.0.1:8080".to_string();
         let network_session = NetworkSession::new(address);
         let document = UiNode::Text(TextProps {
@@ -76,11 +52,9 @@ impl Application for Pinhole {
                 document,
                 context: UiContext {
                     state_map: StateMap::new(),
-                    button_state: HashMap::new(),
-                    text_input_state: HashMap::new(),
                 },
             },
-            Command::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
+            Task::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
         )
     }
 
@@ -88,19 +62,17 @@ impl Application for Pinhole {
         "Pinhole".to_string()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        Subscription::from_recipe(NetworkSessionSubscription::new(
-            self.network_session.clone(),
-        ))
-        .map(PinholeMessage::NetworkSessionEvent)
+    fn subscription(&self) -> Subscription<PinholeMessage> {
+        Subscription::run_with_id("network_session", self.network_session.event_receiver())
+            .map(PinholeMessage::NetworkSessionEvent)
     }
 
-    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
-        let mut command = Command::none();
+    fn update(&mut self, message: PinholeMessage) -> iced::Task<PinholeMessage> {
+        let mut command = Task::none();
         match message {
             PinholeMessage::StartNavigation(path) => {
                 self.network_session.load(&path);
-                command = Command::perform(async {}, |_| PinholeMessage::LoadStarted)
+                command = Task::perform(async {}, |_| PinholeMessage::LoadStarted)
             }
             PinholeMessage::LoadStarted => {
                 log::info!("Load started");
@@ -133,13 +105,21 @@ impl Application for Pinhole {
         command
     }
 
-    fn view(&mut self) -> iced::Element<Self::Message> {
+    fn view(&self) -> iced::Element<PinholeMessage> {
         let stylesheet = Stylesheet;
         Container::new(self.document.view(&stylesheet, &self.context.state_map))
             .width(Length::Fill)
             .height(Length::Fill)
-            .align_x(Align::Center)
-            .align_y(Align::Center)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
             .into()
     }
+}
+
+fn main() -> iced::Result {
+    env_logger::init();
+
+    iced::application("Pinhole", Pinhole::update, Pinhole::view)
+        .subscription(Pinhole::subscription)
+        .run_with(Pinhole::new)
 }

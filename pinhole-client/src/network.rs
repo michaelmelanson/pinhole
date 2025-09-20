@@ -1,11 +1,12 @@
 use async_std::{
+    channel::{unbounded, Receiver, Sender},
     net::TcpStream,
-    sync::{channel, Receiver, Sender},
     task,
 };
 use futures::{select, stream::BoxStream, FutureExt};
 
 use kv_log_macro as log;
+use rustc_hash::FxHasher;
 
 use pinhole_protocol::{
     action::Action,
@@ -45,8 +46,8 @@ pub struct NetworkSession {
 
 impl NetworkSession {
     pub fn new(address: String) -> NetworkSession {
-        let (command_sender, command_receiver) = channel::<NetworkSessionCommand>(10);
-        let (event_sender, event_receiver) = channel::<NetworkSessionEvent>(10);
+        let (command_sender, command_receiver) = unbounded::<NetworkSessionCommand>();
+        let (event_sender, event_receiver) = unbounded::<NetworkSessionEvent>();
 
         let address = address.clone();
         task::spawn(session_loop(
@@ -81,6 +82,10 @@ impl NetworkSession {
                 .await;
         });
     }
+
+    pub fn event_receiver(&self) -> Receiver<NetworkSessionEvent> {
+        self.event_receiver.clone()
+    }
 }
 
 #[derive(Clone)]
@@ -96,19 +101,19 @@ impl NetworkSessionSubscription {
     }
 }
 
-impl<H, I> iced_native::subscription::Recipe<H, I> for NetworkSessionSubscription
-where
-    H: std::hash::Hasher,
-{
+impl iced::advanced::subscription::Recipe for NetworkSessionSubscription {
     type Output = NetworkSessionEvent;
 
-    fn hash(&self, state: &mut H) {
+    fn hash(&self, state: &mut FxHasher) {
         use std::hash::Hash;
 
         std::any::TypeId::of::<Self>().hash(state);
     }
 
-    fn stream(self: Box<Self>, _input: BoxStream<'static, I>) -> BoxStream<'static, Self::Output> {
+    fn stream(
+        self: Box<Self>,
+        _input: futures::stream::BoxStream<'static, iced::advanced::subscription::Event>,
+    ) -> BoxStream<'static, Self::Output> {
         Box::pin(self.session.event_receiver.clone())
     }
 }
@@ -143,7 +148,8 @@ async fn session_loop(
 
         if let Some(path) = current_path.clone() {
             let storage = session_storage.clone();
-            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage })
+                .await?;
         }
 
         'connection: loop {

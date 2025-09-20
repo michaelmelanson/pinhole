@@ -9,12 +9,10 @@ edition = "2018"
 [dependencies]
 pinhole-protocol = { path = "../pinhole-protocol" }
 async-std = { version = "1.7", features = ['unstable'] }
-iced = { git = "https://github.com/hecrj/iced.git", features = ['async-std'] }
-iced_wgpu = { git = "https://github.com/hecrj/iced.git" }
-iced_winit = { git = "https://github.com/hecrj/iced.git" }
-iced_native = { git = "https://github.com/hecrj/iced.git" }
-iced_style = { git = "https://github.com/hecrj/iced.git" }
-futures = "*"
+iced = { version = "0.13", features = ['async-std', 'advanced'] }
+futures = "0.3"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"
 femme = "2.0"
+env_logger = "0.10"
+rustc-hash = "2.1"
