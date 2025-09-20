@@ -3,10 +3,9 @@ use async_std::{
     net::TcpStream,
     task,
 };
-use futures::{select, stream::BoxStream, FutureExt};
+use futures::{select, FutureExt};
 
 use kv_log_macro as log;
-use rustc_hash::FxHasher;
 
 use pinhole_protocol::{
     action::Action,
@@ -16,7 +15,7 @@ use pinhole_protocol::{
     storage::StateMap,
     storage::StorageScope,
 };
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, time::Duration};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -27,7 +26,7 @@ pub enum NetworkSessionCommand {
 }
 
 impl ::log::kv::ToValue for NetworkSessionCommand {
-    fn to_value(&self) -> ::log::kv::Value {
+    fn to_value(&self) -> ::log::kv::Value<'_> {
         ::log::kv::Value::from_debug(self)
     }
 }
@@ -39,7 +38,6 @@ pub enum NetworkSessionEvent {
 
 #[derive(Clone)]
 pub struct NetworkSession {
-    address: String,
     command_sender: Sender<NetworkSessionCommand>,
     event_receiver: Receiver<NetworkSessionEvent>,
 }
@@ -57,7 +55,6 @@ impl NetworkSession {
         ));
 
         NetworkSession {
-            address,
             command_sender,
             event_receiver,
         }
@@ -65,7 +62,8 @@ impl NetworkSession {
 
     pub async fn action(&self, action: &Action, storage: &StateMap) {
         let action = action.clone();
-        self.command_sender
+        let _ = self
+            .command_sender
             .send(NetworkSessionCommand::Action {
                 action,
                 storage: storage.clone(),
@@ -77,7 +75,8 @@ impl NetworkSession {
         let path = path.to_string();
 
         task::block_on(async {
-            self.command_sender
+            let _ = self
+                .command_sender
                 .send(NetworkSessionCommand::Load { path })
                 .await;
         });
@@ -85,36 +84,6 @@ impl NetworkSession {
 
     pub fn event_receiver(&self) -> Receiver<NetworkSessionEvent> {
         self.event_receiver.clone()
-    }
-}
-
-#[derive(Clone)]
-pub struct NetworkSessionSubscription {
-    session: Arc<NetworkSession>,
-}
-
-impl NetworkSessionSubscription {
-    pub fn new(session: Arc<NetworkSession>) -> NetworkSessionSubscription {
-        NetworkSessionSubscription {
-            session: session.clone(),
-        }
-    }
-}
-
-impl iced::advanced::subscription::Recipe for NetworkSessionSubscription {
-    type Output = NetworkSessionEvent;
-
-    fn hash(&self, state: &mut FxHasher) {
-        use std::hash::Hash;
-
-        std::any::TypeId::of::<Self>().hash(state);
-    }
-
-    fn stream(
-        self: Box<Self>,
-        _input: futures::stream::BoxStream<'static, iced::advanced::subscription::Event>,
-    ) -> BoxStream<'static, Self::Output> {
-        Box::pin(self.session.event_receiver.clone())
     }
 }
 
@@ -178,7 +147,7 @@ async fn session_loop(
                 log::info!("Received message from server", {message: message});
                   match message {
                     ServerToClientMessage::Render { document } => {
-                      event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await;
+                      let _ = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await;
                     },
                     ServerToClientMessage::RedirectTo { path } => {
                       current_path = Some(path.clone());

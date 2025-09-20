@@ -35,7 +35,7 @@ pub enum ServerToClientMessage {
 }
 
 impl log::kv::ToValue for ServerToClientMessage {
-    fn to_value(&self) -> log::kv::Value {
+    fn to_value(&self) -> log::kv::Value<'_> {
         log::kv::Value::from_debug(self)
     }
 }

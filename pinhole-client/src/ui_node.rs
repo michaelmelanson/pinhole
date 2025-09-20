@@ -44,7 +44,7 @@ impl UiNode {
         &self,
         stylesheet: &Stylesheet,
         state_map: &StateMap,
-    ) -> iced::Element<PinholeMessage> {
+    ) -> iced::Element<'_, PinholeMessage> {
         match self {
             UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
             UiNode::Text(TextProps { text }) => Text::new(text.clone()).into(),

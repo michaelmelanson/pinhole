@@ -58,10 +58,6 @@ impl Pinhole {
         )
     }
 
-    fn title(&self) -> String {
-        "Pinhole".to_string()
-    }
-
     fn subscription(&self) -> Subscription<PinholeMessage> {
         Subscription::run_with_id("network_session", self.network_session.event_receiver())
             .map(PinholeMessage::NetworkSessionEvent)
@@ -105,7 +101,7 @@ impl Pinhole {
         command
     }
 
-    fn view(&self) -> iced::Element<PinholeMessage> {
+    fn view(&self) -> iced::Element<'_, PinholeMessage> {
         let stylesheet = Stylesheet;
         Container::new(self.document.view(&stylesheet, &self.context.state_map))
             .width(Length::Fill)
