@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 mod network;
+mod storage;
 mod stylesheet;
 mod ui_node;
 
@@ -9,7 +10,11 @@ use kv_log_macro as log;
 use iced::{widget::Container, Alignment, Length, Subscription, Task};
 
 use network::{NetworkSession, NetworkSessionEvent};
-use pinhole_protocol::{action::Action, node::TextProps, storage::StateMap, storage::StateValue};
+use pinhole_protocol::{
+    action::Action,
+    node::TextProps,
+    storage::{StateMap, StateValue},
+};
 use std::sync::Arc;
 use stylesheet::Stylesheet;
 use ui_node::UiNode;
@@ -86,7 +91,9 @@ impl Pinhole {
                 );
             }
             PinholeMessage::FormValueChanged { id, value, action } => {
-                log::info!("Form value changed", { id: id, value: value, action: action });
+                log::debug!("Form value changed", { id: id, value: value, action: action });
+
+                // Store in local context for immediate UI updates and local storage
                 self.context.state_map.insert(id, value);
 
                 if let Some(action) = action {

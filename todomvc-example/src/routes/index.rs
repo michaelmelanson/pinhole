@@ -18,9 +18,14 @@ impl Route for IndexRoute {
             Action { name, .. } if name == SUBMIT_ACTION => {
                 log::info!("Submit with state: {:?}", context.storage);
 
-                context
-                    .store(StorageScope::Session, "authenticated", "1")
-                    .await?;
+                // Store email persistently for authentication
+                let email_value = context.storage.get("email").map(|e| e.string().to_string());
+                if let Some(email) = email_value {
+                    context
+                        .store(StorageScope::Persistent, "saved_email", email)
+                        .await?;
+                }
+
                 context.redirect("/todos").await?;
             }
 
@@ -31,15 +36,18 @@ impl Route for IndexRoute {
     }
 
     async fn render(&self, storage: &StateMap) -> Render {
-        if storage.get("authenticated").is_some() {
+        // Auto-login if email is already saved
+        if storage.get("saved_email").is_some() {
             return Render::RedirectTo("/todos".to_string());
         }
 
-        Render::Document(signin())
+        Render::Document(signin(storage))
     }
 }
 
-fn signin() -> Document {
+fn signin(storage: &StateMap) -> Document {
+    let saved_email = storage.get("saved_email").map(|v| v.string()).unwrap_or("");
+
     Document(Node::Container {
         layout: Layout::default()
             .horizontal(Sizing::default().centred().size(Size::Fixed(300)))
@@ -54,7 +62,11 @@ fn signin() -> Document {
                 label: "Email".to_string(),
                 id: "email".to_string(),
                 password: false,
-                placeholder: Some("yourname@example.com".to_string()),
+                placeholder: if saved_email.is_empty() {
+                    Some("yourname@example.com".to_string())
+                } else {
+                    Some(saved_email.to_string())
+                },
             })
             .boxed(),
             Node::Input(InputProps {

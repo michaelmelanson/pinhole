@@ -7,15 +7,15 @@ use futures::{select, FutureExt};
 
 use kv_log_macro as log;
 
+use crate::storage::StorageManager;
 use pinhole_protocol::{
     action::Action,
     document::Document,
     messages::{ClientToServerMessage, ServerToClientMessage},
     network::{receive_server_message, send_message_to_server},
     storage::StateMap,
-    storage::StorageScope,
 };
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -93,7 +93,7 @@ async fn session_loop(
     event_sender: Sender<NetworkSessionEvent>,
 ) -> Result<()> {
     let mut current_path: Option<String> = None;
-    let mut session_storage: StateMap = HashMap::new();
+    let mut storage_manager = StorageManager::new(address.clone())?;
 
     async fn connect(address: &String) -> Result<TcpStream> {
         loop {
@@ -116,7 +116,9 @@ async fn session_loop(
         log::info!("Connected to server");
 
         if let Some(path) = current_path.clone() {
-            let storage = session_storage.clone();
+            storage_manager.navigate_to(path.clone());
+            storage_manager.clear_local_storage();
+            let storage = storage_manager.get_all_storage();
             send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage })
                 .await?;
         }
@@ -133,7 +135,9 @@ async fn session_loop(
                         },
                         NetworkSessionCommand::Load { path } => {
                             current_path = Some(path.clone());
-                            let storage = session_storage.clone();
+                            storage_manager.navigate_to(path.clone());
+                            storage_manager.clear_local_storage();
+                            let storage = storage_manager.get_all_storage();
                             send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
                         }
                     }
@@ -151,13 +155,14 @@ async fn session_loop(
                     },
                     ServerToClientMessage::RedirectTo { path } => {
                       current_path = Some(path.clone());
-                      let storage = session_storage.clone();
+                      storage_manager.navigate_to(path.clone());
+                      storage_manager.clear_local_storage();
+                      let storage = storage_manager.get_all_storage();
                       send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
                     }
                     ServerToClientMessage::Store { scope, key, value } => {
-                      match scope {
-                        StorageScope::Session => { session_storage.insert(key, value); },
-                        _ => todo!("scope {:?}", scope)
+                      if let Err(e) = storage_manager.store(scope, key, value) {
+                        log::warn!("Failed to store value: {:?}", e);
                       }
                     }
                   }
@@ -168,6 +173,9 @@ async fn session_loop(
               }
             }
         }
+
+        // Connection lost, clear session storage before attempting to reconnect
+        storage_manager.clear_session_storage();
     }
 
     Ok(())

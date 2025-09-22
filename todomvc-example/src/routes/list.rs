@@ -1,8 +1,8 @@
 use maplit::hashmap;
 
 use pinhole::{
-    Action, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route, Size, Sizing,
-    StateMap, TextProps,
+    Action, ButtonProps, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route,
+    Size, Sizing, StateMap, StorageScope, TextProps,
 };
 
 use crate::model::Todo;
@@ -11,6 +11,7 @@ pub struct ListRoute;
 
 const TASK_CHECKED: &str = "checked";
 const TASK_ID_KEY: &str = "id";
+const LOGOUT_ACTION: &str = "logout";
 
 #[async_trait::async_trait]
 impl Route for ListRoute {
@@ -32,13 +33,29 @@ impl Route for ListRoute {
                 }
             }
 
+            Action { name, .. } if name == LOGOUT_ACTION => {
+                log::info!("Logging out");
+
+                // Clear saved email (logout)
+                context
+                    .store(StorageScope::Persistent, "saved_email", "")
+                    .await?;
+
+                context.redirect("/").await?;
+            }
+
             _ => log::error!("Unknown action: {:?}", action),
         }
 
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, storage: &StateMap) -> Render {
+        // Check authentication - must have saved email
+        if storage.get("saved_email").is_none() {
+            return Render::RedirectTo("/".to_string());
+        }
+
         let todos = vec![
             Todo {
                 id: "1".to_string(),
@@ -52,20 +69,36 @@ impl Route for ListRoute {
             },
         ];
 
-        Render::Document(list(&todos))
+        Render::Document(list(&todos, storage))
     }
 }
 
-fn list(todos: &Vec<Todo>) -> Document {
+fn list(todos: &Vec<Todo>, storage: &StateMap) -> Document {
+    let email = storage
+        .get("saved_email")
+        .map(|v| v.string())
+        .unwrap_or("Unknown user");
+
     Document(Node::Container {
         layout: Layout::default()
             .horizontal(Sizing::default().centred().size(Size::Fill))
             .vertical(Sizing::default().centred().size(Size::Fill)),
 
         children: vec![
-            Node::Text(TextProps {
-                text: "Your todos".to_string(),
-            })
+            Node::Container {
+                layout: Layout::default().horizontal(Sizing::default().size(Size::Fill)),
+                children: vec![
+                    Node::Text(TextProps {
+                        text: format!("Your todos ({})", email),
+                    })
+                    .boxed(),
+                    Node::Button(ButtonProps {
+                        label: "Logout".to_string(),
+                        on_click: Action::named(LOGOUT_ACTION, vec![]),
+                    })
+                    .boxed(),
+                ],
+            }
             .boxed(),
             Node::Container {
                 layout: Layout::default(),
