@@ -13,7 +13,10 @@ use async_std::{
     task,
 };
 
-use pinhole_protocol::{messages::ClientToServerMessage, network::{receive_client_message, send_message_to_client}};
+use pinhole_protocol::{
+    messages::ClientToServerMessage,
+    network::{receive_client_message, send_message_to_client},
+};
 
 pub use application::Application;
 pub use context::Context;
@@ -22,8 +25,11 @@ pub use pinhole_protocol::{
     document::Document,
     layout::{Layout, Position, Size, Sizing},
     messages::ServerToClientMessage,
-    node::{ButtonProps, CheckboxProps, InputProps, Node, TextProps},
+    node::{ButtonProps, CheckboxProps, ContainerProps, InputProps, Node, TextProps},
     storage::{StateMap, StateValue, StorageScope},
+    stylesheet::{
+        Alignment, Colour, Direction, FontWeight, Length, StyleRule, Stylesheet, StylesheetClass,
+    },
 };
 pub use route::{Render, Route};
 
@@ -77,12 +83,14 @@ async fn connection_loop(application: impl Application, mut stream: TcpStream) -
             ClientToServerMessage::Load { path, storage } => {
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
-                        Render::Document(document) => {
-                            send_message_to_client(&mut stream, ServerToClientMessage::Render { document })
-                        }
-                        Render::RedirectTo(path) => {
-                            send_message_to_client(&mut stream, ServerToClientMessage::RedirectTo { path })
-                        }
+                        Render::Document(document) => send_message_to_client(
+                            &mut stream,
+                            ServerToClientMessage::Render { document },
+                        ),
+                        Render::RedirectTo(path) => send_message_to_client(
+                            &mut stream,
+                            ServerToClientMessage::RedirectTo { path },
+                        ),
                     }
                     .await?
                 } else {

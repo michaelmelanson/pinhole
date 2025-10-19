@@ -1,12 +1,18 @@
 use serde::{Deserialize, Serialize};
 
-use crate::node::Node;
+use crate::{node::Node, stylesheet::Stylesheet};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Document(pub Node);
+pub struct Document {
+    pub node: Node,
+    pub stylesheet: Stylesheet,
+}
 
 impl Document {
     pub fn empty() -> Document {
-        Document(Node::Empty)
+        Document {
+            node: Node::Empty,
+            stylesheet: Stylesheet::default(),
+        }
     }
 }
