@@ -34,7 +34,8 @@ pub enum PinholeMessage {
 
 struct Pinhole {
     network_session: Arc<NetworkSession>,
-    document: UiNode,
+    document_node: UiNode,
+    stylesheet: Stylesheet,
     context: UiContext,
 }
 
@@ -47,14 +48,16 @@ impl Pinhole {
     fn new() -> (Self, iced::Task<PinholeMessage>) {
         let address = "127.0.0.1:8080".to_string();
         let network_session = NetworkSession::new(address);
-        let document = UiNode::Text(TextProps {
+        let document_node = UiNode::Text(TextProps {
             text: "Loading...".to_string(),
+            classes: vec![],
         });
 
         (
             Pinhole {
                 network_session: Arc::new(network_session),
-                document,
+                document_node,
+                stylesheet: Stylesheet::default(),
                 context: UiContext {
                     state_map: StateMap::new(),
                 },
@@ -81,7 +84,8 @@ impl Pinhole {
             PinholeMessage::NetworkSessionEvent(event) => match event {
                 NetworkSessionEvent::DocumentUpdated(document) => {
                     log::info!("Document updated", { document: format!("{:?}", document) });
-                    self.document = document.0.into();
+                    self.document_node = document.node.into();
+                    self.stylesheet = document.stylesheet.into();
                 }
             },
             PinholeMessage::PerformAction(action) => {
@@ -109,13 +113,15 @@ impl Pinhole {
     }
 
     fn view(&self) -> iced::Element<'_, PinholeMessage> {
-        let stylesheet = Stylesheet;
-        Container::new(self.document.view(&stylesheet, &self.context.state_map))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .align_x(Alignment::Center)
-            .align_y(Alignment::Center)
-            .into()
+        Container::new(
+            self.document_node
+                .view(&self.stylesheet, &self.context.state_map),
+        )
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .align_x(Alignment::Center)
+        .align_y(Alignment::Center)
+        .into()
     }
 }
 
