@@ -33,7 +33,7 @@ Currently it's hardcoded to connect to a server on `0.0.0.0:8080`, so it should 
 
 ### What you'll see
 
-When the client connects, it will first show a login page. Entering an email and password then clicking Sign In will send you to a list page (authentication is faked, but you will see in the terminal that the server receives the information you enter). 
+When the client connects, it will first show a login page. Entering an email and password then clicking Sign In will send you to a list page (authentication is faked, but you will see in the terminal that the server receives the information you enter).
 
 On the list page you will see a couple todo items. You can click their checkboxes and an action will be sent to the server. It doesn't currently persist the changes.
 
@@ -57,7 +57,7 @@ The goal is to explore what would happen if we took the best ideas out of the We
 
 Pinhole maintains a persistent TCP connection to allow for bidirectional messaging. It does not have a request-response cycle: instead, either the client or the server can message each other at any time. The server can, for example, send multiple view updates as loading progresses or in response to server-side events.
 
-The protocol is designed so that all state is maintained client-side so that this connection can be terminated and reconnected at any time with minimal user impact, and so that the server is compatible with load balancers without needing sticky sessions. 
+The protocol is designed so that all state is maintained client-side so that this connection can be terminated and reconnected at any time with minimal user impact, and so that the server is compatible with load balancers without needing sticky sessions.
 
 The messages are transported by length-prefixed [CBOR (Concise Binary Object Representation)](https://tools.ietf.org/html/rfc7049) datagrams. This was chosen because it has flexible, JSON-like semantics but it's compact and fast to generate parse.
 
@@ -105,8 +105,6 @@ Pinhole's client uses [Iced](https://github.com/hecrj/iced) for rendering its vi
 
 ### Roadmap
 * Add Transport level security (TLS) to get HTTPS-like encryption and security.
-* Finish implementing the storage system.
-* Figure out how storage data should be sent on page navigations. The way it works for actions is great, and should work similarly for navigations where only the keys the server cares about should be sent. But how should the client find out about this?
 * Add more node types -- media, grouping, links (then again, we have buttons so maybe HTML-like links aren't necessary?).
 * Add a style system.
 * Add UI chrome -- a navigation bar? status bar?
