@@ -1,7 +1,9 @@
 use pinhole::{
-    Action, ButtonProps, Context, Document, InputProps, Layout, Node, Render, Result, Route, Size,
-    Sizing, StateMap, StorageScope, TextProps,
+    Action, ButtonProps, ContainerProps, Context, Direction, Document, InputProps, Node, Render,
+    Result, Route, StateMap, StateValue, StorageScope, TextProps,
 };
+
+use crate::stylesheet::stylesheet;
 
 pub struct IndexRoute;
 
@@ -37,7 +39,12 @@ impl Route for IndexRoute {
 
     async fn render(&self, storage: &StateMap) -> Render {
         // Auto-login if email is already saved
-        if storage.get("saved_email").is_some() {
+        if storage
+            .get("saved_email")
+            .unwrap_or(&StateValue::Empty)
+            .string()
+            != ""
+        {
             return Render::RedirectTo("/todos".to_string());
         }
 
@@ -48,42 +55,45 @@ impl Route for IndexRoute {
 fn signin(storage: &StateMap) -> Document {
     let saved_email = storage.get("saved_email").map(|v| v.string()).unwrap_or("");
 
-    Document(Node::Container {
-        layout: Layout::default()
-            .horizontal(Sizing::default().centred().size(Size::Fixed(300)))
-            .vertical(Sizing::default().centred().size(Size::Fixed(200))),
-
-        children: vec![
-            Node::Text(TextProps {
-                text: "TODO MVC".to_string(),
-            })
-            .boxed(),
-            Node::Input(InputProps {
-                label: "Email".to_string(),
-                id: "email".to_string(),
-                password: false,
-                placeholder: if saved_email.is_empty() {
-                    Some("yourname@example.com".to_string())
-                } else {
-                    Some(saved_email.to_string())
-                },
-            })
-            .boxed(),
-            Node::Input(InputProps {
-                label: "Password".to_string(),
-                id: "password".to_string(),
-                password: true,
-                placeholder: None,
-            })
-            .boxed(),
-            Node::Button(ButtonProps {
-                label: "Sign in".to_string(),
-                on_click: Action::named(
-                    SUBMIT_ACTION,
-                    vec!["email".to_string(), "password".to_string()],
-                ),
-            })
-            .boxed(),
-        ],
-    })
+    Document {
+        node: Node::Container(ContainerProps {
+            direction: Direction::Vertical,
+            classes: vec!["login-container".to_string()],
+            children: vec![
+                Node::Text(TextProps {
+                    text: "To-do MVC".to_string(),
+                    classes: vec!["title".to_string()],
+                }),
+                Node::Input(InputProps {
+                    label: "Email".to_string(),
+                    id: "email".to_string(),
+                    password: false,
+                    placeholder: if saved_email.is_empty() {
+                        Some("yourname@example.com".to_string())
+                    } else {
+                        Some(saved_email.to_string())
+                    },
+                    input_classes: vec!["input".to_string()],
+                    label_classes: vec![],
+                }),
+                Node::Input(InputProps {
+                    label: "Password".to_string(),
+                    id: "password".to_string(),
+                    password: true,
+                    placeholder: None,
+                    input_classes: vec!["input".to_string()],
+                    label_classes: vec![],
+                }),
+                Node::Button(ButtonProps {
+                    label: "Sign in".to_string(),
+                    on_click: Action::named(
+                        SUBMIT_ACTION,
+                        vec!["email".to_string(), "password".to_string()],
+                    ),
+                    classes: vec!["primary-action".to_string()],
+                }),
+            ],
+        }),
+        stylesheet: stylesheet(),
+    }
 }

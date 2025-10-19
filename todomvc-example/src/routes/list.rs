@@ -1,11 +1,11 @@
 use maplit::hashmap;
 
 use pinhole::{
-    Action, ButtonProps, CheckboxProps, Context, Document, Layout, Node, Render, Result, Route,
-    Size, Sizing, StateMap, StorageScope, TextProps,
+    Action, ButtonProps, CheckboxProps, ContainerProps, Context, Direction, Document, Node, Render,
+    Result, Route, StateMap, StorageScope, TextProps,
 };
 
-use crate::model::Todo;
+use crate::{model::Todo, stylesheet::stylesheet};
 
 pub struct ListRoute;
 
@@ -79,47 +79,62 @@ fn list(todos: &Vec<Todo>, storage: &StateMap) -> Document {
         .map(|v| v.string())
         .unwrap_or("Unknown user");
 
-    Document(Node::Container {
-        layout: Layout::default()
-            .horizontal(Sizing::default().centred().size(Size::Fill))
-            .vertical(Sizing::default().centred().size(Size::Fill)),
-
-        children: vec![
-            Node::Container {
-                layout: Layout::default().horizontal(Sizing::default().size(Size::Fill)),
-                children: vec![
-                    Node::Text(TextProps {
-                        text: format!("Your todos ({})", email),
-                    })
-                    .boxed(),
-                    Node::Button(ButtonProps {
-                        label: "Logout".to_string(),
-                        on_click: Action::named(LOGOUT_ACTION, vec![]),
-                    })
-                    .boxed(),
-                ],
-            }
-            .boxed(),
-            Node::Container {
-                layout: Layout::default(),
-                children: todos
-                    .iter()
-                    .map(|t| {
-                        Node::Checkbox(CheckboxProps {
-                            id: t.id.clone(),
-                            label: t.text.clone(),
-                            checked: t.done,
-                            on_change: Action::new(
-                                TASK_CHECKED,
-                                hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
-                                vec![t.id.clone()],
-                            ),
+    Document {
+        node: Node::Container(ContainerProps {
+            direction: Direction::Vertical,
+            children: vec![
+                Node::Container(ContainerProps {
+                    direction: Direction::Horizontal,
+                    children: vec![
+                        Node::Container(ContainerProps {
+                            direction: Direction::Vertical,
+                            children: vec![Node::Text(TextProps {
+                                text: "Your todos".to_string(),
+                                classes: vec!["title".to_string()],
+                            })],
+                            classes: vec!["title-container".to_string()],
+                        }),
+                        Node::Container(ContainerProps {
+                            direction: Direction::Vertical,
+                            children: vec![
+                                Node::Text(TextProps {
+                                    text: format!("Welcome, {}", email),
+                                    classes: vec![],
+                                }),
+                                Node::Button(ButtonProps {
+                                    label: "Logout".to_string(),
+                                    on_click: Action::named(LOGOUT_ACTION, vec![]),
+                                    classes: vec!["destructive-action".to_string()],
+                                }),
+                            ],
+                            classes: vec!["account-info".to_string()],
+                        }),
+                    ],
+                    classes: vec!["header-container".to_string()],
+                }),
+                Node::Container(ContainerProps {
+                    direction: Direction::Vertical,
+                    children: todos
+                        .iter()
+                        .map(|t| {
+                            Node::Checkbox(CheckboxProps {
+                                id: t.id.clone(),
+                                label: t.text.clone(),
+                                checked: t.done,
+                                on_change: Action::new(
+                                    TASK_CHECKED,
+                                    hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
+                                    vec![t.id.clone()],
+                                ),
+                                classes: vec![],
+                            })
                         })
-                        .boxed()
-                    })
-                    .collect::<Vec<_>>(),
-            }
-            .boxed(),
-        ],
-    })
+                        .collect::<Vec<_>>(),
+                    classes: vec!["todo-list".to_string()],
+                }),
+            ],
+            classes: vec![],
+        }),
+        stylesheet: stylesheet(),
+    }
 }
