@@ -103,6 +103,7 @@ impl StorageManager {
         let mut json_map = HashMap::new();
         for (key, value) in &self.persistent_storage {
             let json_value = match value {
+                StateValue::Empty => serde_json::Value::Null,
                 StateValue::String(s) => serde_json::Value::String(s.clone()),
                 StateValue::Boolean(b) => serde_json::Value::Bool(*b),
             };
