@@ -16,6 +16,7 @@ pub enum StorageScope {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StateValue {
+    Empty,
     String(String),
     Boolean(bool),
 }
