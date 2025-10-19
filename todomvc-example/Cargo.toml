@@ -2,13 +2,13 @@
 name = "pinhole-todomvc-example"
 version = "0.1.0"
 authors = ["Michael Melanson <michael@michaelmelanson.net>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 pinhole = { path = "../pinhole-framework" }
-async-std = "1.5"
+async-std = "1.12"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"
 femme = "2.0"
