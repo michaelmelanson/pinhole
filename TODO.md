@@ -6,8 +6,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 
 ### Security Issues
 - [x] Add TLS/encryption support for all network communications
-- [ ] Implement encrypted storage for persistent data (credentials, sensitive info)
-- [ ] Add message size limits to prevent DoS attacks (`Vec::resize` vulnerability in `pinhole-client/src/network.rs`)
+- [x] Add message size limits to prevent DoS attacks (`Vec::resize` vulnerability in `pinhole-client/src/network.rs`)
 - [ ] Implement rate limiting for connections and messages
 - [ ] Add input validation and sanitization for all form inputs
 - [ ] Implement CSRF/XSRF protection for actions
@@ -15,7 +14,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [ ] Fix session fixation vulnerability in storage navigation
 
 ### Error Handling
-- [ ] Create structured error types (replace `Box<dyn Error>`)
+- [x] Create structured error types (replace `Box<dyn Error>`)
 - [ ] Implement error recovery instead of closing connections on any error
 - [ ] Add error message protocol variants (ServerToClientMessage::Error)
 - [ ] Replace silent `let _ =` failures with proper error handling

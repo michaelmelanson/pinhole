@@ -76,6 +76,12 @@ impl From<TlsConfigError> for NetworkError {
     }
 }
 
+impl From<pinhole_protocol::network::NetworkError> for NetworkError {
+    fn from(err: pinhole_protocol::network::NetworkError) -> Self {
+        NetworkError::ProtocolError(err.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

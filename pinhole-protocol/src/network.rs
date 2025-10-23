@@ -4,8 +4,76 @@ use async_std::{net::TcpStream, prelude::*};
 use crate::messages::{ClientToServerMessage, ServerToClientMessage};
 
 use kv_log_macro as log;
+use std::fmt;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+/// Maximum message size: 10MB
+/// This prevents DoS attacks where an attacker sends a message claiming to be gigabytes in size
+const MAX_MESSAGE_SIZE: u32 = 10 * 1024 * 1024; // 10 MB
+
+#[derive(Debug)]
+pub enum NetworkError {
+    /// Message exceeds maximum allowed size
+    MessageTooLarge { size: u32, max: u32 },
+    /// IO error
+    IoError(std::io::Error),
+    /// Serialization/deserialization error
+    SerializationError(String),
+}
+
+impl fmt::Display for NetworkError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NetworkError::MessageTooLarge { size, max } => {
+                write!(
+                    f,
+                    "Message size {} bytes exceeds maximum {} bytes",
+                    size, max
+                )
+            }
+            NetworkError::IoError(err) => write!(f, "IO error: {}", err),
+            NetworkError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for NetworkError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            NetworkError::IoError(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for NetworkError {
+    fn from(err: std::io::Error) -> Self {
+        NetworkError::IoError(err)
+    }
+}
+
+impl From<serde_cbor::Error> for NetworkError {
+    fn from(err: serde_cbor::Error) -> Self {
+        NetworkError::SerializationError(err.to_string())
+    }
+}
+
+pub type Result<T> = std::result::Result<T, NetworkError>;
+
+/// Validates that a message length is within acceptable bounds
+fn validate_message_size(length: u32) -> Result<()> {
+    if length > MAX_MESSAGE_SIZE {
+        log::error!(
+            "Message size {} exceeds maximum {}",
+            length,
+            MAX_MESSAGE_SIZE
+        );
+        return Err(NetworkError::MessageTooLarge {
+            size: length,
+            max: MAX_MESSAGE_SIZE,
+        });
+    }
+    Ok(())
+}
 
 pub async fn send_message_to_server(
     stream: &mut TlsStream<TcpStream>,
@@ -48,6 +116,8 @@ pub async fn receive_server_message(
     log::trace!("Incoming response", { length: response_length });
 
     if response_length > 0 {
+        validate_message_size(response_length)?;
+
         let mut bytes = Vec::new();
         bytes.resize(response_length as usize, 0u8);
         stream.read(&mut bytes).await?;
@@ -74,6 +144,8 @@ pub async fn receive_client_message(
     log::trace!("Incoming request", { length: request_length });
 
     if request_length > 0 {
+        validate_message_size(request_length)?;
+
         let mut bytes = Vec::new();
         bytes.resize(request_length as usize, 0u8);
         stream.read(&mut bytes).await?;

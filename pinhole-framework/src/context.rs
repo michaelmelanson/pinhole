@@ -26,10 +26,13 @@ impl Context<'_> {
             ServerToClientMessage::Store { scope, key, value },
         )
         .await
+        .map_err(|e| e.into())
     }
 
     pub async fn redirect(&mut self, path: impl ToString) -> Result<()> {
         let path = path.to_string();
-        send_message_to_client(self.stream, ServerToClientMessage::RedirectTo { path }).await
+        send_message_to_client(self.stream, ServerToClientMessage::RedirectTo { path })
+            .await
+            .map_err(|e| e.into())
     }
 }
