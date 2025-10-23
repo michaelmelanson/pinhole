@@ -37,6 +37,7 @@ struct Pinhole {
     document_node: UiNode,
     stylesheet: Stylesheet,
     context: UiContext,
+    error_message: Option<String>,
 }
 
 #[derive(Clone)]
@@ -61,6 +62,7 @@ impl Pinhole {
                 context: UiContext {
                     state_map: StateMap::new(),
                 },
+                error_message: None,
             },
             Task::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
         )
@@ -89,6 +91,11 @@ impl Pinhole {
                     log::info!("Document updated", { document: format!("{:?}", document) });
                     self.document_node = document.node.into();
                     self.stylesheet = document.stylesheet.into();
+                    self.error_message = None; // Clear any error when new document loads
+                }
+                NetworkSessionEvent::ServerError { code, message } => {
+                    log::error!("Server error {}: {}", code, message);
+                    self.error_message = Some(format!("Error {}: {}", code, message));
                 }
             },
             PinholeMessage::PerformAction(action) => {
@@ -128,15 +135,27 @@ impl Pinhole {
     }
 
     fn view(&self) -> iced::Element<'_, PinholeMessage> {
-        Container::new(
+        use iced::widget::{column, text};
+
+        let content = if let Some(error) = &self.error_message {
+            column![
+                text(error).size(16).color([1.0, 0.0, 0.0]),
+                self.document_node
+                    .view(&self.stylesheet, &self.context.state_map),
+            ]
+            .spacing(10)
+            .into()
+        } else {
             self.document_node
-                .view(&self.stylesheet, &self.context.state_map),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .align_x(Alignment::Center)
-        .align_y(Alignment::Center)
-        .into()
+                .view(&self.stylesheet, &self.context.state_map)
+        };
+
+        Container::new(content)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
+            .into()
     }
 }
 

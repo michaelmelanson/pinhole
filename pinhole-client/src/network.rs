@@ -37,6 +37,7 @@ impl ::log::kv::ToValue for NetworkSessionCommand {
 #[derive(Debug, Clone)]
 pub enum NetworkSessionEvent {
     DocumentUpdated(Document),
+    ServerError { code: u16, message: String },
 }
 
 #[derive(Clone)]
@@ -207,7 +208,13 @@ async fn session_loop(
                     }
                     ServerToClientMessage::Error { code, message } => {
                       log::error!("Server error {}: {}", code.as_u16(), message);
-                      // Error messages are logged but don't close the connection
+                      if let Err(e) = event_sender.send(NetworkSessionEvent::ServerError {
+                        code: code.as_u16(),
+                        message,
+                      }).await {
+                        log::error!("UI thread closed, shutting down network session: {:?}", e);
+                        break 'main;
+                      }
                     }
                   }
                 } else {

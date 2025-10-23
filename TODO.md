@@ -15,7 +15,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Replace silent `let _ =` failures with proper error handling
 - [x] Add retry logic for transient network errors
 - [x] Remove panic risks (e.g., `expect("Can't fire actions without a path set")` in `pinhole-client/src/network.rs`)
-- [ ] Add error messages to UI layer
+- [x] Add error messages to UI layer
 - [ ] Distinguish between recoverable and fatal errors
 
 ### Testing
