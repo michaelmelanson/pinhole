@@ -15,7 +15,7 @@ use async_std::{
 };
 
 use pinhole_protocol::{
-    messages::ClientToServerMessage,
+    messages::{ClientToServerMessage, ErrorCode},
     network::{receive_client_message, send_message_to_client},
     tls_config::ServerTlsConfig,
 };
@@ -84,8 +84,22 @@ async fn connection_loop(
 ) -> Result<()> {
     log::info!("New TLS connection");
 
-    while let Some(ref request) = receive_client_message(&mut stream).await? {
-        match request {
+    loop {
+        // Receive message - network errors are fatal and close connection
+        let request = match receive_client_message(&mut stream).await {
+            Ok(Some(req)) => req,
+            Ok(None) => {
+                log::info!("Client closed connection");
+                break;
+            }
+            Err(e) => {
+                log::error!("Fatal network error: {}", e);
+                return Err(e.into());
+            }
+        };
+
+        // Handle the request - application errors are recoverable
+        let result = match &request {
             ClientToServerMessage::Action {
                 path,
                 action,
@@ -97,10 +111,18 @@ async fn connection_loop(
                         storage: storage.clone(),
                         stream: &mut stream,
                     };
-
-                    route.action(action, &mut context).await?;
+                    route.action(action, &mut context).await
                 } else {
                     log::error!("No route found", { path: path });
+                    send_message_to_client(
+                        &mut stream,
+                        ServerToClientMessage::Error {
+                            code: ErrorCode::NotFound,
+                            message: format!("Route not found: {}", path),
+                        },
+                    )
+                    .await
+                    .map_err(|e| e.into())
                 }
             }
 
@@ -110,16 +132,49 @@ async fn connection_loop(
                         Render::Document(document) => send_message_to_client(
                             &mut stream,
                             ServerToClientMessage::Render { document },
-                        ),
-                        Render::RedirectTo(path) => send_message_to_client(
+                        )
+                        .await
+                        .map_err(|e| e.into()),
+                        Render::RedirectTo(redirect_path) => send_message_to_client(
                             &mut stream,
-                            ServerToClientMessage::RedirectTo { path },
-                        ),
+                            ServerToClientMessage::RedirectTo {
+                                path: redirect_path,
+                            },
+                        )
+                        .await
+                        .map_err(|e| e.into()),
                     }
-                    .await?
                 } else {
                     log::error!("No route found", { path: path });
+                    send_message_to_client(
+                        &mut stream,
+                        ServerToClientMessage::Error {
+                            code: ErrorCode::NotFound,
+                            message: format!("Route not found: {}", path),
+                        },
+                    )
+                    .await
+                    .map_err(|e| e.into())
                 }
+            }
+        };
+
+        // Send error message to client if request handling failed
+        if let Err(e) = result {
+            log::warn!("Request handling error: {}", e);
+            let error_result = send_message_to_client(
+                &mut stream,
+                ServerToClientMessage::Error {
+                    code: ErrorCode::InternalServerError,
+                    message: e.to_string(),
+                },
+            )
+            .await;
+
+            // If we can't send the error message, the connection is broken
+            if let Err(send_err) = error_result {
+                log::error!("Failed to send error message: {}", send_err);
+                return Err(send_err.into());
             }
         }
     }

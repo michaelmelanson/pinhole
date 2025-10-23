@@ -10,8 +10,8 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 
 ### Error Handling
 - [x] Create structured error types (replace `Box<dyn Error>`)
-- [ ] Implement error recovery instead of closing connections on any error
-- [ ] Add error message protocol variants (ServerToClientMessage::Error)
+- [x] Implement error recovery instead of closing connections on any error
+- [x] Add error message protocol variants (ServerToClientMessage::Error)
 - [ ] Replace silent `let _ =` failures with proper error handling
 - [ ] Add retry logic for transient network errors
 - [ ] Remove panic risks (e.g., `expect("Can't fire actions without a path set")` in `pinhole-client/src/network.rs`)

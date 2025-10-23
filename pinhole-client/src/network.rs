@@ -193,6 +193,10 @@ async fn session_loop(
                         log::warn!("Failed to store value: {:?}", e);
                       }
                     }
+                    ServerToClientMessage::Error { code, message } => {
+                      log::error!("Server error {}: {}", code.as_u16(), message);
+                      // Error messages are logged but don't close the connection
+                    }
                   }
                 } else {
                   log::info!("Received null response, terminating connection");
