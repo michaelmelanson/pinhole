@@ -164,8 +164,11 @@ async fn session_loop(
                     log::info!("Received command from app", {command: command});
                     match command {
                         NetworkSessionCommand::Action { action, storage } => {
-                            let path = current_path.clone().expect("Can't fire actions without a path set");
-                            send_message_to_server(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
+                            if let Some(path) = current_path.clone() {
+                                send_message_to_server(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
+                            } else {
+                                log::error!("Attempted to fire action without a path set, ignoring");
+                            }
                         },
                         NetworkSessionCommand::Load { path } => {
                             current_path = Some(path.clone());
