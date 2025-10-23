@@ -7,11 +7,6 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 ### Security Issues
 - [x] Add TLS/encryption support for all network communications
 - [x] Add message size limits to prevent DoS attacks (`Vec::resize` vulnerability in `pinhole-client/src/network.rs`)
-- [ ] Implement rate limiting for connections and messages
-- [ ] Add input validation and sanitization for all form inputs
-- [ ] Implement CSRF/XSRF protection for actions
-- [ ] Add session expiration and rotation mechanisms
-- [ ] Fix session fixation vulnerability in storage navigation
 
 ### Error Handling
 - [x] Create structured error types (replace `Box<dyn Error>`)
@@ -57,7 +52,6 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 ### Storage Layer
 - [ ] Implement atomic writes for persistent storage (temp file + rename pattern)
 - [ ] Fix origin sanitization to prevent collisions
-- [ ] Add session storage expiration
 - [ ] Implement storage locking for multi-client scenarios
 - [ ] Add storage encryption at rest
 - [ ] Add storage backup and restore functionality
@@ -68,7 +62,6 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [ ] Reduce clone overhead (StateMap cloned per action)
 - [ ] Optimize routing with hash-based lookup instead of linear O(n)
 - [ ] Implement UI diffing/reconciliation
-- [ ] Add connection pooling
 - [ ] Profile and optimize CBOR serialization hotspots
 
 ## Medium Priority
@@ -95,7 +88,6 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 ### Architecture
 - [ ] Add middleware pattern for cross-cutting concerns (auth, logging, metrics)
 - [ ] Implement session replication for horizontal scaling
-- [ ] Add connection pooling strategy
 - [ ] Design and implement load balancer compatibility
 - [ ] Separate network/storage/UI concerns in client codebase
 - [ ] Create common utilities crate to reduce duplication
@@ -171,7 +163,6 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [ ] Create package manager for Pinhole applications
 - [ ] Build standard library of components
 - [ ] Create developer tools (debugger, inspector)
-- [ ] Build browser extension for HTTP bridge
 - [ ] Create migration tools from web apps
 
 ## Anti-Goals (Explicitly NOT Planned)
