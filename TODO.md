@@ -16,7 +16,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Add retry logic for transient network errors
 - [x] Remove panic risks (e.g., `expect("Can't fire actions without a path set")` in `pinhole-client/src/network.rs`)
 - [x] Add error messages to UI layer
-- [ ] Distinguish between recoverable and fatal errors
+- [x] Distinguish between recoverable and fatal errors
 
 ### Testing
 - [ ] Add protocol serialization/deserialization tests
