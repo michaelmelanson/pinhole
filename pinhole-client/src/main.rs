@@ -5,7 +5,6 @@ mod storage;
 mod stylesheet;
 mod ui_node;
 
-use async_std::task;
 use kv_log_macro as log;
 
 use iced::{widget::Container, Alignment, Length, Subscription, Task};
@@ -76,8 +75,11 @@ impl Pinhole {
         let mut command = Task::none();
         match message {
             PinholeMessage::StartNavigation(path) => {
-                self.network_session.load(&path);
-                command = Task::perform(async {}, |_| PinholeMessage::LoadStarted)
+                if let Err(e) = self.network_session.load(&path) {
+                    log::error!("Failed to load page: {}", e);
+                } else {
+                    command = Task::perform(async {}, |_| PinholeMessage::LoadStarted)
+                }
             }
             PinholeMessage::LoadStarted => {
                 log::info!("Load started");
@@ -90,9 +92,15 @@ impl Pinhole {
                 }
             },
             PinholeMessage::PerformAction(action) => {
-                task::block_on(
-                    self.network_session
-                        .action(&action, &self.context.state_map),
+                let network_session = self.network_session.clone();
+                let state_map = self.context.state_map.clone();
+                command = Task::perform(
+                    async move {
+                        if let Err(e) = network_session.action(&action, &state_map).await {
+                            log::error!("Failed to send action: {}", e);
+                        }
+                    },
+                    |_| PinholeMessage::LoadStarted,
                 );
             }
             PinholeMessage::FormValueChanged { id, value, action } => {
@@ -102,9 +110,15 @@ impl Pinhole {
                 self.context.state_map.insert(id, value);
 
                 if let Some(action) = action {
-                    task::block_on(
-                        self.network_session
-                            .action(&action, &self.context.state_map),
+                    let network_session = self.network_session.clone();
+                    let state_map = self.context.state_map.clone();
+                    command = Task::perform(
+                        async move {
+                            if let Err(e) = network_session.action(&action, &state_map).await {
+                                log::error!("Failed to send action: {}", e);
+                            }
+                        },
+                        |_| PinholeMessage::LoadStarted,
                     );
                 }
             }

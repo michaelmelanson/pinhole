@@ -63,26 +63,32 @@ impl NetworkSession {
         }
     }
 
-    pub async fn action(&self, action: &Action, storage: &StateMap) {
+    pub async fn action(&self, action: &Action, storage: &StateMap) -> Result<()> {
         let action = action.clone();
-        let _ = self
-            .command_sender
+        self.command_sender
             .send(NetworkSessionCommand::Action {
                 action,
                 storage: storage.clone(),
             })
-            .await;
+            .await
+            .map_err(|e| {
+                log::error!("Network session thread is dead: {:?}", e);
+                NetworkError::ProtocolError("Network session is not running".to_string())
+            })
     }
 
-    pub fn load(&self, path: &str) {
+    pub fn load(&self, path: &str) -> Result<()> {
         let path = path.to_string();
 
         task::block_on(async {
-            let _ = self
-                .command_sender
+            self.command_sender
                 .send(NetworkSessionCommand::Load { path })
-                .await;
-        });
+                .await
+                .map_err(|e| {
+                    log::error!("Network session thread is dead: {:?}", e);
+                    NetworkError::ProtocolError("Network session is not running".to_string())
+                })
+        })
     }
 
     pub fn event_receiver(&self) -> Receiver<NetworkSessionEvent> {
@@ -179,7 +185,10 @@ async fn session_loop(
                 log::info!("Received message from server", {message: message});
                   match message {
                     ServerToClientMessage::Render { document } => {
-                      let _ = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await;
+                      if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await {
+                        log::error!("UI thread closed, shutting down network session: {:?}", e);
+                        break 'main;
+                      }
                     },
                     ServerToClientMessage::RedirectTo { path } => {
                       current_path = Some(path.clone());
