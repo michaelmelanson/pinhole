@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Layout {
     pub horizontal: Sizing,
     pub vertical: Sizing,
@@ -33,7 +33,7 @@ impl Layout {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct Sizing {
     pub position: Position,
     pub size: Size,
@@ -52,7 +52,7 @@ impl Sizing {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Position {
     Start,
     End,
@@ -65,7 +65,7 @@ impl Default for Position {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Size {
     Auto,
     Fixed(u16),

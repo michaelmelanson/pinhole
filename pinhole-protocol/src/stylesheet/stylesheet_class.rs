@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::stylesheet::style_rule::StyleRule;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StylesheetClass {
     pub name: String,
     pub rules: Vec<StyleRule>,

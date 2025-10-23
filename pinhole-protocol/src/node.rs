@@ -2,27 +2,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::{action::Action, stylesheet::Direction};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ContainerProps {
     pub direction: Direction,
     pub children: Vec<Node>,
     pub classes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TextProps {
     pub text: String,
     pub classes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ButtonProps {
     pub label: String,
     pub on_click: Action,
     pub classes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CheckboxProps {
     pub id: String,
     pub label: String,
@@ -31,7 +31,7 @@ pub struct CheckboxProps {
     pub classes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct InputProps {
     pub id: String,
     pub label: String,
@@ -41,7 +41,7 @@ pub struct InputProps {
     pub input_classes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum Node {
     Empty,
     Container(ContainerProps),

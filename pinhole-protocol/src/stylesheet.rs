@@ -13,7 +13,7 @@ pub use self::{
     length::Length, style_rule::StyleRule, stylesheet_class::StylesheetClass,
 };
 
-#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Stylesheet {
     pub classes: Vec<StylesheetClass>,
 }

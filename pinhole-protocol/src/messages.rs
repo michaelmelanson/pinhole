@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Error codes for server-to-client error messages
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ErrorCode {
     /// 400 Bad Request - The request was malformed or invalid
     BadRequest,
@@ -28,7 +28,7 @@ impl ErrorCode {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ClientToServerMessage {
     Load {
         path: String,
@@ -41,7 +41,7 @@ pub enum ClientToServerMessage {
     },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ServerToClientMessage {
     Render {
         document: Document,

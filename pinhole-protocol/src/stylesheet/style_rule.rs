@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StyleRule {
     // Text
     TextColour(Colour),

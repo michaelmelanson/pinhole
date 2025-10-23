@@ -19,7 +19,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Distinguish between recoverable and fatal errors
 
 ### Testing
-- [ ] Add protocol serialization/deserialization tests
+- [x] Add protocol serialization/deserialization tests
 - [ ] Add integration tests for client-server communication
 - [ ] Add malformed message handling tests
 - [ ] Add concurrent connection tests
@@ -32,7 +32,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [ ] Target 70%+ code coverage
 
 ### Race Conditions & Concurrency
-- [ ] Remove `block_on` calls from UI thread (`pinhole-client/src/main.rs`)
+- [x] Remove `block_on` calls from UI thread (`pinhole-client/src/main.rs`)
 - [ ] Refactor to fully async message passing
 - [ ] Add bounded channels with backpressure handling
 - [ ] Add synchronization for concurrent storage access
