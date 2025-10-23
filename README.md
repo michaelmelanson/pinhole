@@ -10,6 +10,20 @@ Set your expectations very low, and then move them lower. This is just a proof o
 
 You'll need a Rust development environment. See the [Getting Started instructions](https://www.rust-lang.org/learn/get-started) on Rust website for details about setting that up.
 
+### Certificates
+
+Pinhole uses TLS for all connections. Before you can run anything, you'll need to generate some certificates.
+
+For local development, there's a script that'll generate a self-signed certificate:
+
+```
+./scripts/generate_dev_cert.sh
+```
+
+This creates `cert.pem` and `key.pem` files that are valid for a year. They'll work fine for localhost development, but obviously don't use these in production.
+
+If you want to deploy this for real (which you probably shouldn't, since it's just a proof of concept), you can use Let's Encrypt to get proper certificates. Install certbot, run `certbot certonly --standalone -d yourdomain.com`, and point your server at the certificate files it generates in `/etc/letsencrypt/live/yourdomain.com/`.
+
 
 ### Starting a server
 

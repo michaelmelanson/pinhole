@@ -1,3 +1,4 @@
+use async_native_tls::TlsStream;
 use async_std::{
     channel::{unbounded, Receiver, Sender},
     net::TcpStream,
@@ -7,6 +8,7 @@ use futures::{select, FutureExt};
 
 use kv_log_macro as log;
 
+use crate::error::NetworkError;
 use crate::storage::StorageManager;
 use pinhole_protocol::{
     action::Action,
@@ -14,10 +16,11 @@ use pinhole_protocol::{
     messages::{ClientToServerMessage, ServerToClientMessage},
     network::{receive_server_message, send_message_to_server},
     storage::StateMap,
+    tls_config::ClientTlsConfig,
 };
 use std::time::Duration;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+type Result<T> = std::result::Result<T, NetworkError>;
 
 #[derive(Debug)]
 pub enum NetworkSessionCommand {
@@ -93,14 +96,39 @@ async fn session_loop(
     event_sender: Sender<NetworkSessionEvent>,
 ) -> Result<()> {
     let mut current_path: Option<String> = None;
-    let mut storage_manager = StorageManager::new(address.clone())?;
+    let mut storage_manager = StorageManager::new(address.clone())
+        .map_err(|e| NetworkError::StorageError(e.to_string()))?;
 
-    async fn connect(address: &String) -> Result<TcpStream> {
+    async fn connect(address: &String) -> Result<TlsStream<TcpStream>> {
+        // Create TLS connector that accepts invalid certificates for development
+        let tls_config = ClientTlsConfig::new_danger_accept_invalid_certs();
+        let connector = tls_config.build_connector()?;
+
         loop {
             log::debug!("Trying to connect to {}", address);
             match TcpStream::connect(&address).await {
-                Ok(stream) => {
-                    return Ok(stream);
+                Ok(tcp_stream) => {
+                    log::debug!("TCP connection established, starting TLS handshake");
+
+                    // Extract hostname from address (before the colon)
+                    let hostname = address
+                        .split(':')
+                        .next()
+                        .ok_or_else(|| NetworkError::InvalidAddress(address.clone()))?;
+
+                    // TLS handshake failures are usually configuration errors
+                    // (bad certs, protocol mismatch, etc.) that won't fix themselves
+                    let tls_stream =
+                        connector
+                            .connect(hostname, tcp_stream)
+                            .await
+                            .map_err(|err| {
+                                log::error!("TLS handshake failed: {:?}", err);
+                                NetworkError::TlsHandshakeFailed(err.to_string())
+                            })?;
+
+                    log::info!("TLS connection established");
+                    return Ok(tls_stream);
                 }
                 Err(err) => {
                     log::warn!("Error trying to connect (will retry in 1s): {:?}", err);
@@ -111,7 +139,7 @@ async fn session_loop(
     }
 
     'main: loop {
-        let mut stream: TcpStream = connect(&address).await?;
+        let mut stream: TlsStream<TcpStream> = connect(&address).await?;
 
         log::info!("Connected to server");
 

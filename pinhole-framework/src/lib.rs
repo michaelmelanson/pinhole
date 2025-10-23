@@ -6,6 +6,7 @@ mod route;
 
 use kv_log_macro as log;
 
+use async_native_tls::TlsStream;
 use async_std::{
     future::Future,
     net::{TcpListener, TcpStream, ToSocketAddrs},
@@ -16,6 +17,7 @@ use async_std::{
 use pinhole_protocol::{
     messages::ClientToServerMessage,
     network::{receive_client_message, send_message_to_client},
+    tls_config::ServerTlsConfig,
 };
 
 pub use application::Application;
@@ -30,35 +32,57 @@ pub use pinhole_protocol::{
     stylesheet::{
         Alignment, Colour, Direction, FontWeight, Length, StyleRule, Stylesheet, StylesheetClass,
     },
+    tls_config::ServerTlsConfig as TlsConfig,
 };
 pub use route::{Render, Route};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-pub fn run(application: impl Application + 'static, address: impl ToSocketAddrs) -> Result<()> {
+pub fn run(
+    application: impl Application + 'static,
+    address: impl ToSocketAddrs,
+    tls_config: ServerTlsConfig,
+) -> Result<()> {
     femme::start();
 
-    task::block_on(accept_loop(application, address))
+    task::block_on(accept_loop(application, address, tls_config))
 }
 
 async fn accept_loop(
     application: impl Application + 'static,
     addr: impl ToSocketAddrs,
+    tls_config: ServerTlsConfig,
 ) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
+    let acceptor = tls_config.build_acceptor()?;
+
+    log::info!("Server listening with TLS enabled");
 
     let mut incoming = listener.incoming();
     while let Some(stream) = incoming.next().await {
-        spawn_and_log_error(connection_loop(application, stream?));
+        let tcp_stream = stream?;
+        let acceptor = acceptor.clone();
+
+        task::spawn(async move {
+            let tls_stream = acceptor.accept(tcp_stream).await.map_err(|e| {
+                log::error!("TLS handshake failed: {}", e);
+                e
+            });
+
+            if let Ok(stream) = tls_stream {
+                spawn_and_log_error(connection_loop(application, stream));
+            }
+        });
     }
 
     Ok(())
 }
 
-async fn connection_loop(application: impl Application, mut stream: TcpStream) -> Result<()> {
-    log::info!("New connection", {
-        address: format!("{:?}", stream.peer_addr()?)
-    });
+async fn connection_loop(
+    application: impl Application,
+    mut stream: TlsStream<TcpStream>,
+) -> Result<()> {
+    log::info!("New TLS connection");
 
     while let Some(ref request) = receive_client_message(&mut stream).await? {
         match request {

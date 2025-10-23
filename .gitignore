@@ -1,2 +1,9 @@
 /target
 .DS_Store
+
+# TLS certificates (don't commit private keys or development certificates)
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx

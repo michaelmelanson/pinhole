@@ -12,3 +12,9 @@ async-std = "1.12"
 serde_cbor = "0.11"
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"
+async-native-tls = "0.5"
+native-tls = "0.2"
+
+[dev-dependencies]
+async-std = { version = "1.12", features = ["attributes"] }
+tempfile = "3.8"

@@ -1,4 +1,5 @@
 #![recursion_limit = "1024"]
+mod error;
 mod network;
 mod storage;
 mod stylesheet;

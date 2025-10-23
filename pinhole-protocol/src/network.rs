@@ -1,3 +1,4 @@
+use async_native_tls::TlsStream;
 use async_std::{net::TcpStream, prelude::*};
 
 use crate::messages::{ClientToServerMessage, ServerToClientMessage};
@@ -6,7 +7,10 @@ use kv_log_macro as log;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-pub async fn send_message_to_server(stream: &mut TcpStream, request: ClientToServerMessage) -> Result<()> {
+pub async fn send_message_to_server(
+    stream: &mut TlsStream<TcpStream>,
+    request: ClientToServerMessage,
+) -> Result<()> {
     log::debug!("Sending request: {:?}", request);
     let bytes = serde_cbor::to_vec(&request)?;
 
@@ -17,7 +21,10 @@ pub async fn send_message_to_server(stream: &mut TcpStream, request: ClientToSer
     Ok(())
 }
 
-pub async fn send_message_to_client(stream: &mut TcpStream, response: ServerToClientMessage) -> Result<()> {
+pub async fn send_message_to_client(
+    stream: &mut TlsStream<TcpStream>,
+    response: ServerToClientMessage,
+) -> Result<()> {
     log::debug!("Sending response: {:?}", response);
 
     let bytes = serde_cbor::to_vec(&response)?;
@@ -29,7 +36,9 @@ pub async fn send_message_to_client(stream: &mut TcpStream, response: ServerToCl
     Ok(())
 }
 
-pub async fn receive_server_message(stream: &mut TcpStream) -> Result<Option<ServerToClientMessage>> {
+pub async fn receive_server_message(
+    stream: &mut TlsStream<TcpStream>,
+) -> Result<Option<ServerToClientMessage>> {
     log::debug!("Waiting for response...");
 
     let mut bytes = [0u8; 4];
@@ -53,7 +62,9 @@ pub async fn receive_server_message(stream: &mut TcpStream) -> Result<Option<Ser
     }
 }
 
-pub async fn receive_client_message(stream: &mut TcpStream) -> Result<Option<ClientToServerMessage>> {
+pub async fn receive_client_message(
+    stream: &mut TlsStream<TcpStream>,
+) -> Result<Option<ClientToServerMessage>> {
     log::debug!("Waiting for request...");
 
     let mut bytes = [0u8; 4];
