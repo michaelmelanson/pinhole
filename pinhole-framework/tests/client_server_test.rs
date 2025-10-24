@@ -2,10 +2,14 @@ use async_std::future::timeout;
 use async_std::os::unix::net::UnixStream;
 use async_std::task;
 use async_trait::async_trait;
-use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
+use pinhole::{
+    Action, Application, ButtonProps, ContainerProps, Context, Document, Node, Render, Route,
+    TextProps,
+};
 use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
+use pinhole_protocol::stylesheet::Direction;
 use std::time::Duration;
 
 /// Simple test application
@@ -14,7 +18,13 @@ struct TestApp;
 
 impl Application for TestApp {
     fn routes(&self) -> Vec<Box<dyn Route>> {
-        vec![Box::new(HelloRoute), Box::new(CounterRoute)]
+        vec![
+            Box::new(HelloRoute),
+            Box::new(CounterRoute),
+            Box::new(RedirectRoute),
+            Box::new(ErrorRoute),
+            Box::new(ButtonRoute),
+        ]
     }
 }
 
@@ -98,6 +108,91 @@ impl Route for CounterRoute {
     }
 }
 
+/// Route that redirects to another route
+struct RedirectRoute;
+
+#[async_trait]
+impl Route for RedirectRoute {
+    fn path(&self) -> &'static str {
+        "/redirect"
+    }
+
+    async fn action<'a>(
+        &self,
+        _action: &Action,
+        _context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
+        Ok(())
+    }
+
+    async fn render(&self, _storage: &StateMap) -> Render {
+        Render::RedirectTo("/hello".to_string())
+    }
+}
+
+/// Route that throws an error
+struct ErrorRoute;
+
+#[async_trait]
+impl Route for ErrorRoute {
+    fn path(&self) -> &'static str {
+        "/error"
+    }
+
+    async fn action<'a>(
+        &self,
+        _action: &Action,
+        _context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
+        Err("Intentional error from action".into())
+    }
+
+    async fn render(&self, _storage: &StateMap) -> Render {
+        // Return a document that will work, but the route is meant to test error handling
+        // We'll test render errors by making the action fail instead
+        Render::Document(Document {
+            node: Node::Text(TextProps {
+                text: "This shouldn't be reached".to_string(),
+                classes: vec![],
+            }),
+            stylesheet: Default::default(),
+        })
+    }
+}
+
+/// Route that returns a button node
+struct ButtonRoute;
+
+#[async_trait]
+impl Route for ButtonRoute {
+    fn path(&self) -> &'static str {
+        "/button"
+    }
+
+    async fn action<'a>(
+        &self,
+        _action: &Action,
+        _context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
+        Ok(())
+    }
+
+    async fn render(&self, _storage: &StateMap) -> Render {
+        Render::Document(Document {
+            node: Node::Container(ContainerProps {
+                direction: Direction::Vertical,
+                children: vec![Node::Button(ButtonProps {
+                    label: "Click me!".to_string(),
+                    on_click: simple_action("click"),
+                    classes: vec![],
+                })],
+                classes: vec![],
+            }),
+            stylesheet: Default::default(),
+        })
+    }
+}
+
 /// Test fixture that manages client-server connection
 struct TestFixture {
     client: TestClient,
@@ -157,6 +252,15 @@ impl TestFixture {
         };
         assert_eq!(*code, expected_code);
         assert!(message.contains(contains_text));
+    }
+
+    /// Assert that messages contain a single RedirectTo with expected path
+    fn assert_redirect(messages: &[ServerToClientMessage], expected_path: &str) {
+        assert_eq!(messages.len(), 1);
+        let ServerToClientMessage::RedirectTo { path } = &messages[0] else {
+            panic!("Expected RedirectTo message");
+        };
+        assert_eq!(path, expected_path);
     }
 }
 
@@ -388,4 +492,95 @@ async fn test_real_client_server_multiple_requests() {
             }),
         );
     }
+}
+
+#[async_std::test]
+async fn test_redirect_response() {
+    let mut fixture = TestFixture::new();
+
+    fixture
+        .client
+        .send_load("/redirect", StateMap::new())
+        .await
+        .expect("Failed to send load");
+
+    let messages = fixture
+        .client
+        .receive_all_messages()
+        .await
+        .expect("Failed to receive");
+
+    TestFixture::assert_redirect(&messages, "/hello");
+}
+
+#[async_std::test]
+async fn test_action_route_not_found() {
+    let mut fixture = TestFixture::new();
+
+    fixture
+        .client
+        .send_action("/nonexistent", simple_action("test"), StateMap::new())
+        .await
+        .expect("Failed to send action");
+
+    let messages = fixture
+        .client
+        .receive_all_messages()
+        .await
+        .expect("Failed to receive");
+
+    TestFixture::assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
+}
+
+#[async_std::test]
+async fn test_internal_error_from_action() {
+    let mut fixture = TestFixture::new();
+
+    fixture
+        .client
+        .send_action("/error", simple_action("test"), StateMap::new())
+        .await
+        .expect("Failed to send action");
+
+    let messages = fixture
+        .client
+        .receive_all_messages()
+        .await
+        .expect("Failed to receive");
+
+    TestFixture::assert_error(
+        &messages,
+        ErrorCode::InternalServerError,
+        "Intentional error",
+    );
+}
+
+#[async_std::test]
+async fn test_button_and_container_nodes() {
+    let mut fixture = TestFixture::new();
+
+    fixture
+        .client
+        .send_load("/button", StateMap::new())
+        .await
+        .expect("Failed to send load");
+
+    let messages = fixture
+        .client
+        .receive_all_messages()
+        .await
+        .expect("Failed to receive");
+
+    TestFixture::assert_render(
+        &messages,
+        Node::Container(ContainerProps {
+            direction: Direction::Vertical,
+            children: vec![Node::Button(ButtonProps {
+                label: "Click me!".to_string(),
+                on_click: simple_action("click"),
+                classes: vec![],
+            })],
+            classes: vec![],
+        }),
+    );
 }
