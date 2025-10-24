@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 pinhole-protocol = { path = "../pinhole-protocol" }
-async-std = "1.5"
+async-std = { version = "1.5", features = ["attributes"] }
 log = { version = "0.4", features = ['kv_unstable'] }
 kv-log-macro = "1.0"
 femme = "2.0"

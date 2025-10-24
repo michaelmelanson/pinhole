@@ -90,7 +90,94 @@ async fn accept_loop(
     Ok(())
 }
 
-/// Generic connection handler that works with any async stream
+/// Handle a single request and send response(s) to the stream
+pub async fn handle_request(
+    application: impl Application,
+    request: &ClientToServerMessage,
+    stream: &mut impl MessageStream,
+) -> Result<()> {
+    let result = match request {
+        ClientToServerMessage::Action {
+            path,
+            action,
+            storage,
+        } => {
+            log::info!("Received action", {path: path, action: action});
+            if let Some(route) = application.route(path) {
+                let mut context = Context {
+                    storage: storage.clone(),
+                    stream,
+                };
+                route.action(action, &mut context).await
+            } else {
+                log::error!("No route found", { path: path });
+                send_message_to_client(
+                    stream,
+                    ServerToClientMessage::Error {
+                        code: ErrorCode::NotFound,
+                        message: format!("Route not found: {}", path),
+                    },
+                )
+                .await
+                .map_err(|e| e.into())
+            }
+        }
+
+        ClientToServerMessage::Load { path, storage } => {
+            if let Some(route) = application.route(path) {
+                match route.render(storage).await {
+                    Render::Document(document) => {
+                        send_message_to_client(stream, ServerToClientMessage::Render { document })
+                            .await
+                            .map_err(|e| e.into())
+                    }
+                    Render::RedirectTo(redirect_path) => send_message_to_client(
+                        stream,
+                        ServerToClientMessage::RedirectTo {
+                            path: redirect_path,
+                        },
+                    )
+                    .await
+                    .map_err(|e| e.into()),
+                }
+            } else {
+                log::error!("No route found", { path: path });
+                send_message_to_client(
+                    stream,
+                    ServerToClientMessage::Error {
+                        code: ErrorCode::NotFound,
+                        message: format!("Route not found: {}", path),
+                    },
+                )
+                .await
+                .map_err(|e| e.into())
+            }
+        }
+    };
+
+    // Send error message to client if request handling failed
+    if let Err(e) = result {
+        log::warn!("Request handling error: {}", e);
+        let error_result = send_message_to_client(
+            stream,
+            ServerToClientMessage::Error {
+                code: ErrorCode::InternalServerError,
+                message: e.to_string(),
+            },
+        )
+        .await;
+
+        // If we can't send the error message, the connection is broken
+        if let Err(send_err) = error_result {
+            log::error!("Failed to send error message: {}", send_err);
+            return Err(send_err.into());
+        }
+    }
+
+    Ok(())
+}
+
+/// Generic connection handler that works with any async stream (processes multiple requests)
 pub async fn handle_connection(
     application: impl Application,
     stream: &mut impl MessageStream,
@@ -109,85 +196,8 @@ pub async fn handle_connection(
             }
         };
 
-        // Handle the request - application errors are recoverable
-        let result = match &request {
-            ClientToServerMessage::Action {
-                path,
-                action,
-                storage,
-            } => {
-                log::info!("Received action", {path: path, action: action});
-                if let Some(route) = application.route(path) {
-                    let mut context = Context {
-                        storage: storage.clone(),
-                        stream,
-                    };
-                    route.action(action, &mut context).await
-                } else {
-                    log::error!("No route found", { path: path });
-                    send_message_to_client(
-                        stream,
-                        ServerToClientMessage::Error {
-                            code: ErrorCode::NotFound,
-                            message: format!("Route not found: {}", path),
-                        },
-                    )
-                    .await
-                    .map_err(|e| e.into())
-                }
-            }
-
-            ClientToServerMessage::Load { path, storage } => {
-                if let Some(route) = application.route(path) {
-                    match route.render(storage).await {
-                        Render::Document(document) => send_message_to_client(
-                            stream,
-                            ServerToClientMessage::Render { document },
-                        )
-                        .await
-                        .map_err(|e| e.into()),
-                        Render::RedirectTo(redirect_path) => send_message_to_client(
-                            stream,
-                            ServerToClientMessage::RedirectTo {
-                                path: redirect_path,
-                            },
-                        )
-                        .await
-                        .map_err(|e| e.into()),
-                    }
-                } else {
-                    log::error!("No route found", { path: path });
-                    send_message_to_client(
-                        stream,
-                        ServerToClientMessage::Error {
-                            code: ErrorCode::NotFound,
-                            message: format!("Route not found: {}", path),
-                        },
-                    )
-                    .await
-                    .map_err(|e| e.into())
-                }
-            }
-        };
-
-        // Send error message to client if request handling failed
-        if let Err(e) = result {
-            log::warn!("Request handling error: {}", e);
-            let error_result = send_message_to_client(
-                stream,
-                ServerToClientMessage::Error {
-                    code: ErrorCode::InternalServerError,
-                    message: e.to_string(),
-                },
-            )
-            .await;
-
-            // If we can't send the error message, the connection is broken
-            if let Err(send_err) = error_result {
-                log::error!("Failed to send error message: {}", send_err);
-                return Err(send_err.into());
-            }
-        }
+        // Handle this request
+        handle_request(application, &request, stream).await?;
     }
 
     Ok(())
