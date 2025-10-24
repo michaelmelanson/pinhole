@@ -14,3 +14,6 @@ kv-log-macro = "1.0"
 femme = "2.0"
 async-trait = "0.1"
 async-native-tls = "0.5"
+
+[dev-dependencies]
+serde_cbor = "0.11"
