@@ -71,9 +71,6 @@ async fn test_message_too_large() {
         .await
         .expect("Failed to send length");
 
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
-
     // The server should close the connection due to the too-large message
     // Try to read - should get connection closed or error
     let mut buf = [0u8; 4];
@@ -111,9 +108,6 @@ async fn test_invalid_cbor_data() {
     send_raw_bytes(&mut client_stream, &invalid_data)
         .await
         .expect("Failed to send data");
-
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
 
     // The server should close the connection due to deserialization error
     let mut buf = [0u8; 4];
@@ -154,9 +148,6 @@ async fn test_truncated_message() {
     // Close the write side to simulate truncation
     client_stream.flush().await.ok();
 
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
-
     // The server should handle this gracefully (likely by closing connection)
     let mut buf = [0u8; 4];
     let result = client_stream.read(&mut buf).await;
@@ -187,9 +178,6 @@ async fn test_zero_length_message() {
     send_raw_bytes(&mut client_stream, &zero_length.to_le_bytes())
         .await
         .expect("Failed to send length");
-
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
 
     // The server should close the connection gracefully
     let mut buf = [0u8; 4];
@@ -225,9 +213,6 @@ async fn test_wrong_message_structure() {
         .await
         .expect("Failed to send data");
 
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
-
     // The server should close the connection due to deserialization error
     let mut buf = [0u8; 4];
     let result = client_stream.read(&mut buf).await;
@@ -260,9 +245,6 @@ async fn test_partial_length_header() {
 
     // Close the connection
     drop(client_stream);
-
-    // Give the server a moment to process
-    task::sleep(Duration::from_millis(100)).await;
 
     // Server should handle this gracefully
     drop(server_handle);
