@@ -1,6 +1,4 @@
-use crate::{Result, ServerToClientMessage, StorageScope};
-use async_native_tls::TlsStream;
-use async_std::net::TcpStream;
+use crate::{MessageStream, Result, ServerToClientMessage, StorageScope};
 use pinhole_protocol::{
     network::send_message_to_client,
     storage::{StateMap, StateValue},
@@ -9,7 +7,7 @@ use pinhole_protocol::{
 pub struct Context<'a> {
     pub storage: StateMap,
 
-    pub(crate) stream: &'a mut TlsStream<TcpStream>,
+    pub(crate) stream: &'a mut dyn MessageStream,
 }
 
 impl Context<'_> {

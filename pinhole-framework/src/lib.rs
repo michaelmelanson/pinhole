@@ -38,6 +38,18 @@ pub use route::{Render, Route};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+/// Requirements for a stream that can handle Pinhole protocol messages
+pub trait MessageStream:
+    pinhole_protocol::network::ReadStream + pinhole_protocol::network::WriteStream + Send
+{
+}
+
+/// Blanket implementation for any type that satisfies the requirements
+impl<T> MessageStream for T where
+    T: pinhole_protocol::network::ReadStream + pinhole_protocol::network::WriteStream + Send
+{
+}
+
 pub fn run(
     application: impl Application + 'static,
     address: impl ToSocketAddrs,
@@ -78,15 +90,14 @@ async fn accept_loop(
     Ok(())
 }
 
-async fn connection_loop(
+/// Generic connection handler that works with any async stream
+pub async fn handle_connection(
     application: impl Application,
-    mut stream: TlsStream<TcpStream>,
+    stream: &mut impl MessageStream,
 ) -> Result<()> {
-    log::info!("New TLS connection");
-
     loop {
         // Receive message - network errors are fatal and close connection
-        let request = match receive_client_message(&mut stream).await {
+        let request = match receive_client_message(stream).await {
             Ok(Some(req)) => req,
             Ok(None) => {
                 log::info!("Client closed connection");
@@ -109,13 +120,13 @@ async fn connection_loop(
                 if let Some(route) = application.route(path) {
                     let mut context = Context {
                         storage: storage.clone(),
-                        stream: &mut stream,
+                        stream,
                     };
                     route.action(action, &mut context).await
                 } else {
                     log::error!("No route found", { path: path });
                     send_message_to_client(
-                        &mut stream,
+                        stream,
                         ServerToClientMessage::Error {
                             code: ErrorCode::NotFound,
                             message: format!("Route not found: {}", path),
@@ -130,13 +141,13 @@ async fn connection_loop(
                 if let Some(route) = application.route(path) {
                     match route.render(storage).await {
                         Render::Document(document) => send_message_to_client(
-                            &mut stream,
+                            stream,
                             ServerToClientMessage::Render { document },
                         )
                         .await
                         .map_err(|e| e.into()),
                         Render::RedirectTo(redirect_path) => send_message_to_client(
-                            &mut stream,
+                            stream,
                             ServerToClientMessage::RedirectTo {
                                 path: redirect_path,
                             },
@@ -147,7 +158,7 @@ async fn connection_loop(
                 } else {
                     log::error!("No route found", { path: path });
                     send_message_to_client(
-                        &mut stream,
+                        stream,
                         ServerToClientMessage::Error {
                             code: ErrorCode::NotFound,
                             message: format!("Route not found: {}", path),
@@ -163,7 +174,7 @@ async fn connection_loop(
         if let Err(e) = result {
             log::warn!("Request handling error: {}", e);
             let error_result = send_message_to_client(
-                &mut stream,
+                stream,
                 ServerToClientMessage::Error {
                     code: ErrorCode::InternalServerError,
                     message: e.to_string(),
@@ -180,6 +191,15 @@ async fn connection_loop(
     }
 
     Ok(())
+}
+
+/// TLS-specific connection handler wrapper
+async fn connection_loop(
+    application: impl Application,
+    mut stream: TlsStream<TcpStream>,
+) -> Result<()> {
+    log::info!("New TLS connection");
+    handle_connection(application, &mut stream).await
 }
 
 fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>

@@ -1,7 +1,15 @@
-use async_native_tls::TlsStream;
-use async_std::{net::TcpStream, prelude::*};
+use async_std::io::{Read as AsyncRead, Write as AsyncWrite};
+use async_std::prelude::*;
 
 use crate::messages::{ClientToServerMessage, ServerToClientMessage};
+
+/// Trait alias for readable streams (supports trait objects via ?Sized impl)
+pub trait ReadStream: AsyncRead + Unpin {}
+impl<T: AsyncRead + Unpin + ?Sized> ReadStream for T {}
+
+/// Trait alias for writable streams (supports trait objects via ?Sized impl)
+pub trait WriteStream: AsyncWrite + Unpin {}
+impl<T: AsyncWrite + Unpin + ?Sized> WriteStream for T {}
 
 use kv_log_macro as log;
 use std::fmt;
@@ -75,8 +83,8 @@ fn validate_message_size(length: u32) -> Result<()> {
     Ok(())
 }
 
-pub async fn send_message_to_server(
-    stream: &mut TlsStream<TcpStream>,
+pub async fn send_message_to_server<S: WriteStream + ?Sized>(
+    stream: &mut S,
     request: ClientToServerMessage,
 ) -> Result<()> {
     log::debug!("Sending request: {:?}", request);
@@ -89,8 +97,8 @@ pub async fn send_message_to_server(
     Ok(())
 }
 
-pub async fn send_message_to_client(
-    stream: &mut TlsStream<TcpStream>,
+pub async fn send_message_to_client<S: WriteStream + ?Sized>(
+    stream: &mut S,
     response: ServerToClientMessage,
 ) -> Result<()> {
     log::debug!("Sending response: {:?}", response);
@@ -104,8 +112,8 @@ pub async fn send_message_to_client(
     Ok(())
 }
 
-pub async fn receive_server_message(
-    stream: &mut TlsStream<TcpStream>,
+pub async fn receive_server_message<S: ReadStream + ?Sized>(
+    stream: &mut S,
 ) -> Result<Option<ServerToClientMessage>> {
     log::debug!("Waiting for response...");
 
@@ -132,8 +140,8 @@ pub async fn receive_server_message(
     }
 }
 
-pub async fn receive_client_message(
-    stream: &mut TlsStream<TcpStream>,
+pub async fn receive_client_message<S: ReadStream + ?Sized>(
+    stream: &mut S,
 ) -> Result<Option<ClientToServerMessage>> {
     log::debug!("Waiting for request...");
 
