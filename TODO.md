@@ -22,7 +22,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Add protocol serialization/deserialization tests
 - [x] Add integration tests for client-server communication
 - [x] Add malformed message handling tests
-- [ ] Add concurrent connection tests
+- [x] Add concurrent connection tests
 - [ ] Add security vulnerability tests (fuzzing, boundary conditions)
 - [ ] Add action dispatch tests
 - [ ] Add route matching tests
