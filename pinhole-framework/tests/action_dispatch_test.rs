@@ -2,13 +2,11 @@
 mod common;
 
 use async_trait::async_trait;
-use common::{connect_test_client, start_test_server};
+use common::{connect_test_client, receive_message, send_action, start_test_server};
 use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
-use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
-use pinhole_protocol::network::{receive_server_message, send_message_to_server};
+use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use std::collections::HashMap;
-use tokio::net::UnixStream;
 
 // Test application
 #[derive(Clone, Copy)]
@@ -371,34 +369,6 @@ impl Route for ComplexDataRoute {
             }),
             stylesheet: Default::default(),
         })
-    }
-}
-
-// Helper functions for tests
-async fn send_action(
-    stream: &mut UnixStream,
-    path: &str,
-    action: Action,
-    storage: StateMap,
-) -> Result<(), Box<dyn std::error::Error>> {
-    send_message_to_server(
-        stream,
-        ClientToServerMessage::Action {
-            path: path.to_string(),
-            action,
-            storage,
-        },
-    )
-    .await
-    .map_err(|e| e.into())
-}
-
-async fn receive_message(
-    stream: &mut UnixStream,
-) -> Result<ServerToClientMessage, Box<dyn std::error::Error>> {
-    match receive_server_message(stream).await? {
-        Some(msg) => Ok(msg),
-        None => Err("Connection closed".into()),
     }
 }
 

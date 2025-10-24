@@ -1,11 +1,14 @@
 //! Common test utilities shared across integration tests
 
-use pinhole::{Application, Node};
-use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
-use pinhole_protocol::storage::{StateValue, StorageScope};
+use pinhole::{Action, Application, Node};
+use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
+use pinhole_protocol::network::{receive_server_message, send_message_to_server};
+use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
+use std::collections::HashMap;
 use std::time::Duration;
 use tempfile::NamedTempFile;
 use tokio::net::{UnixListener, UnixStream};
+use tokio::time::timeout;
 
 /// Assert that messages contain a single Render with expected node
 pub fn assert_render(messages: &[ServerToClientMessage], expected_node: Node) {
@@ -98,4 +101,102 @@ pub async fn connect_test_client(socket_path: &str) -> UnixStream {
         }
     }
     panic!("Failed to connect to test server at {}", socket_path)
+}
+
+/// Send a Load request to the server
+pub async fn send_load(
+    stream: &mut UnixStream,
+    path: &str,
+    storage: StateMap,
+) -> Result<(), Box<dyn std::error::Error>> {
+    send_message_to_server(
+        stream,
+        ClientToServerMessage::Load {
+            path: path.to_string(),
+            storage,
+        },
+    )
+    .await
+    .map_err(|e| e.into())
+}
+
+/// Send an Action request to the server
+pub async fn send_action(
+    stream: &mut UnixStream,
+    path: &str,
+    action: Action,
+    storage: StateMap,
+) -> Result<(), Box<dyn std::error::Error>> {
+    send_message_to_server(
+        stream,
+        ClientToServerMessage::Action {
+            path: path.to_string(),
+            action,
+            storage,
+        },
+    )
+    .await
+    .map_err(|e| e.into())
+}
+
+/// Send a simple Action request with just a name
+pub async fn send_simple_action(
+    stream: &mut UnixStream,
+    path: &str,
+    action_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    send_action(
+        stream,
+        path,
+        Action::new(action_name, HashMap::new(), vec![]),
+        StateMap::new(),
+    )
+    .await
+}
+
+/// Receive a message from the server
+pub async fn receive_message(
+    stream: &mut UnixStream,
+) -> Result<ServerToClientMessage, Box<dyn std::error::Error>> {
+    match receive_server_message(stream).await? {
+        Some(msg) => Ok(msg),
+        None => Err("Connection closed".into()),
+    }
+}
+
+/// Receive all messages until a terminal message (Render, RedirectTo, or Error)
+pub async fn receive_all_messages(
+    stream: &mut UnixStream,
+) -> Result<Vec<ServerToClientMessage>, Box<dyn std::error::Error>> {
+    let mut messages = Vec::new();
+
+    loop {
+        let result = timeout(Duration::from_secs(2), receive_server_message(stream)).await;
+
+        match result {
+            Ok(Ok(Some(msg))) => {
+                let is_terminal = matches!(
+                    msg,
+                    ServerToClientMessage::Render { .. }
+                        | ServerToClientMessage::RedirectTo { .. }
+                        | ServerToClientMessage::Error { .. }
+                );
+                messages.push(msg);
+                if is_terminal {
+                    break;
+                }
+            }
+            Ok(Ok(None)) => break,
+            Ok(Err(e)) => return Err(e.into()),
+            Err(_) => {
+                // Timeout - if we have messages and no terminal, that's okay for actions
+                if !messages.is_empty() {
+                    break;
+                }
+                return Err("Timeout waiting for server message".into());
+            }
+        }
+    }
+
+    Ok(messages)
 }

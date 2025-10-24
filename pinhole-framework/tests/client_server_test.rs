@@ -2,18 +2,17 @@
 mod common;
 
 use async_trait::async_trait;
-use common::{assert_error, assert_redirect, assert_render, assert_store};
+use common::{
+    assert_error, assert_redirect, assert_render, assert_store, connect_test_client,
+    receive_all_messages, send_action, send_load, start_test_server,
+};
 use pinhole::{
     Action, Application, ButtonProps, ContainerProps, Context, Document, Node, Render, Route,
     TextProps,
 };
-use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
-use pinhole_protocol::network::{receive_server_message, send_message_to_server};
+use pinhole_protocol::messages::ErrorCode;
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use pinhole_protocol::stylesheet::Direction;
-use std::time::Duration;
-use tokio::net::UnixStream;
-use tokio::time::timeout;
 
 /// Simple test application
 #[derive(Clone, Copy)]
@@ -196,30 +195,6 @@ impl Route for ButtonRoute {
     }
 }
 
-/// Test fixture that manages client-server connection
-struct TestFixture {
-    client: TestClient,
-}
-
-impl TestFixture {
-    /// Set up a new test with server running TestApp
-    fn new() -> Self {
-        let (client_stream, server_stream) =
-            UnixStream::pair().expect("Failed to create socket pair");
-        let app = TestApp;
-
-        // Spawn server task
-        tokio::spawn(async move {
-            let mut stream = server_stream;
-            let _ = pinhole::handle_connection(app, &mut stream).await;
-        });
-
-        TestFixture {
-            client: TestClient::new(client_stream),
-        }
-    }
-}
-
 /// Helper to create storage with a count value
 fn count_storage(count: i32) -> StateMap {
     let mut storage = StateMap::new();
@@ -236,99 +211,16 @@ fn simple_action(name: &str) -> Action {
     }
 }
 
-/// Client helper that sends requests and receives responses
-struct TestClient {
-    stream: UnixStream,
-}
-
-impl TestClient {
-    fn new(stream: UnixStream) -> Self {
-        TestClient { stream }
-    }
-
-    async fn send_load(&mut self, path: &str, storage: StateMap) -> pinhole::Result<()> {
-        let request = ClientToServerMessage::Load {
-            path: path.to_string(),
-            storage,
-        };
-        send_message_to_server(&mut self.stream, request).await?;
-        Ok(())
-    }
-
-    async fn send_action(
-        &mut self,
-        path: &str,
-        action: Action,
-        storage: StateMap,
-    ) -> pinhole::Result<()> {
-        let request = ClientToServerMessage::Action {
-            path: path.to_string(),
-            action,
-            storage,
-        };
-        send_message_to_server(&mut self.stream, request).await?;
-        Ok(())
-    }
-
-    async fn receive_message(&mut self) -> pinhole::Result<Option<ServerToClientMessage>> {
-        timeout(
-            Duration::from_secs(2),
-            receive_server_message(&mut self.stream),
-        )
-        .await
-        .map_err(|_| -> Box<dyn std::error::Error + Send + Sync> {
-            "Timeout waiting for server message".into()
-        })?
-        .map_err(|e| e.into())
-    }
-
-    async fn receive_all_messages(&mut self) -> pinhole::Result<Vec<ServerToClientMessage>> {
-        let mut messages = Vec::new();
-
-        // Read messages until we get a terminal message (Render, RedirectTo, or Error)
-        // or until timeout
-        loop {
-            match self.receive_message().await {
-                Ok(Some(msg)) => {
-                    let is_terminal = matches!(
-                        msg,
-                        ServerToClientMessage::Render { .. }
-                            | ServerToClientMessage::RedirectTo { .. }
-                            | ServerToClientMessage::Error { .. }
-                    );
-                    messages.push(msg);
-                    if is_terminal {
-                        break;
-                    }
-                }
-                Ok(None) => break,
-                Err(e) => {
-                    // If we already have messages and timeout, that's okay - action responses might not have terminal messages
-                    if !messages.is_empty() && e.to_string().contains("Timeout") {
-                        break;
-                    }
-                    return Err(e);
-                }
-            }
-        }
-
-        Ok(messages)
-    }
-}
-
 #[tokio::test]
 async fn test_real_client_server_basic_load() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_load("/hello", StateMap::new())
+    send_load(&mut client, "/hello", StateMap::new())
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -343,18 +235,15 @@ async fn test_real_client_server_basic_load() {
 
 #[tokio::test]
 async fn test_real_client_server_with_storage() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
     // First load - counter should be 0
-    fixture
-        .client
-        .send_load("/counter", StateMap::new())
+    send_load(&mut client, "/counter", StateMap::new())
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
     assert_render(
@@ -366,15 +255,16 @@ async fn test_real_client_server_with_storage() {
     );
 
     // Send increment action
-    fixture
-        .client
-        .send_action("/counter", simple_action("increment"), count_storage(0))
-        .await
-        .expect("Failed to send action");
+    send_action(
+        &mut client,
+        "/counter",
+        simple_action("increment"),
+        count_storage(0),
+    )
+    .await
+    .expect("Failed to send action");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -382,15 +272,11 @@ async fn test_real_client_server_with_storage() {
     assert_store(&messages, "count", StateValue::String("1".to_string()));
 
     // Now send a Load request to see the updated count
-    fixture
-        .client
-        .send_load("/counter", count_storage(1))
+    send_load(&mut client, "/counter", count_storage(1))
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -405,17 +291,14 @@ async fn test_real_client_server_with_storage() {
 
 #[tokio::test]
 async fn test_real_client_server_route_not_found() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_load("/nonexistent", StateMap::new())
+    send_load(&mut client, "/nonexistent", StateMap::new())
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -424,19 +307,16 @@ async fn test_real_client_server_route_not_found() {
 
 #[tokio::test]
 async fn test_real_client_server_multiple_requests() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
     // Send multiple requests over the same connection
     for _ in 0..3 {
-        fixture
-            .client
-            .send_load("/hello", StateMap::new())
+        send_load(&mut client, "/hello", StateMap::new())
             .await
             .expect("Failed to send load");
 
-        let messages = fixture
-            .client
-            .receive_all_messages()
+        let messages = receive_all_messages(&mut client)
             .await
             .expect("Failed to receive");
 
@@ -452,17 +332,14 @@ async fn test_real_client_server_multiple_requests() {
 
 #[tokio::test]
 async fn test_redirect_response() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_load("/redirect", StateMap::new())
+    send_load(&mut client, "/redirect", StateMap::new())
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -471,17 +348,19 @@ async fn test_redirect_response() {
 
 #[tokio::test]
 async fn test_action_route_not_found() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_action("/nonexistent", simple_action("test"), StateMap::new())
-        .await
-        .expect("Failed to send action");
+    send_action(
+        &mut client,
+        "/nonexistent",
+        simple_action("test"),
+        StateMap::new(),
+    )
+    .await
+    .expect("Failed to send action");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -490,17 +369,19 @@ async fn test_action_route_not_found() {
 
 #[tokio::test]
 async fn test_internal_error_from_action() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_action("/error", simple_action("test"), StateMap::new())
-        .await
-        .expect("Failed to send action");
+    send_action(
+        &mut client,
+        "/error",
+        simple_action("test"),
+        StateMap::new(),
+    )
+    .await
+    .expect("Failed to send action");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
@@ -513,17 +394,14 @@ async fn test_internal_error_from_action() {
 
 #[tokio::test]
 async fn test_button_and_container_nodes() {
-    let mut fixture = TestFixture::new();
+    let socket_path = start_test_server(TestApp);
+    let mut client = connect_test_client(&socket_path).await;
 
-    fixture
-        .client
-        .send_load("/button", StateMap::new())
+    send_load(&mut client, "/button", StateMap::new())
         .await
         .expect("Failed to send load");
 
-    let messages = fixture
-        .client
-        .receive_all_messages()
+    let messages = receive_all_messages(&mut client)
         .await
         .expect("Failed to receive");
 
