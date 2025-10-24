@@ -6,13 +6,9 @@ mod route;
 
 use kv_log_macro as log;
 
-use async_native_tls::TlsStream;
-use async_std::{
-    future::Future,
-    net::{TcpListener, TcpStream, ToSocketAddrs},
-    prelude::*,
-    task,
-};
+use std::future::Future;
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tokio_native_tls::TlsStream;
 
 use pinhole_protocol::{
     messages::{ClientToServerMessage, ErrorCode},
@@ -50,14 +46,14 @@ impl<T> MessageStream for T where
 {
 }
 
-pub fn run(
+pub async fn run(
     application: impl Application + 'static,
     address: impl ToSocketAddrs,
     tls_config: ServerTlsConfig,
 ) -> Result<()> {
     femme::start();
 
-    task::block_on(accept_loop(application, address, tls_config))
+    accept_loop(application, address, tls_config).await
 }
 
 async fn accept_loop(
@@ -70,12 +66,11 @@ async fn accept_loop(
 
     log::info!("Server listening with TLS enabled");
 
-    let mut incoming = listener.incoming();
-    while let Some(stream) = incoming.next().await {
-        let tcp_stream = stream?;
+    loop {
+        let (tcp_stream, _addr) = listener.accept().await?;
         let acceptor = acceptor.clone();
 
-        task::spawn(async move {
+        tokio::spawn(async move {
             let tls_stream = acceptor.accept(tcp_stream).await.map_err(|e| {
                 log::error!("TLS handshake failed: {}", e);
                 e
@@ -86,8 +81,6 @@ async fn accept_loop(
             }
         });
     }
-
-    Ok(())
 }
 
 /// Handle a single request and send response(s) to the stream
@@ -212,11 +205,11 @@ async fn connection_loop(
     handle_connection(application, &mut stream).await
 }
 
-fn spawn_and_log_error<F>(fut: F) -> task::JoinHandle<()>
+fn spawn_and_log_error<F>(fut: F) -> tokio::task::JoinHandle<()>
 where
     F: Future<Output = Result<()>> + Send + 'static,
 {
-    task::spawn(async move {
+    tokio::spawn(async move {
         if let Err(e) = fut.await {
             log::error!("Connection error {}", e);
         }

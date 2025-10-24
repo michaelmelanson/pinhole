@@ -8,7 +8,8 @@ edition = "2021"
 
 [dependencies]
 pinhole-protocol.workspace = true
-async-std = { workspace = true, features = ["unstable"] }
+tokio.workspace = true
+tokio-stream.workspace = true
 iced.workspace = true
 futures.workspace = true
 log.workspace = true
@@ -18,7 +19,7 @@ env_logger.workspace = true
 rustc-hash.workspace = true
 serde_json.workspace = true
 directories.workspace = true
-async-native-tls.workspace = true
+tokio-native-tls.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

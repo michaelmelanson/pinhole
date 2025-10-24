@@ -1,5 +1,4 @@
-use async_std::io::{Read as AsyncRead, Write as AsyncWrite};
-use async_std::prelude::*;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::messages::{ClientToServerMessage, ServerToClientMessage};
 

@@ -1,9 +1,8 @@
-use async_std::os::unix::net::UnixStream;
-use async_std::prelude::*;
-use async_std::task;
 use pinhole_protocol::messages::ClientToServerMessage;
 use pinhole_protocol::storage::StateMap;
 use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::UnixStream;
 
 // Use the test app from client_server_test
 mod test_app {
@@ -53,14 +52,14 @@ async fn send_raw_bytes(stream: &mut UnixStream, bytes: &[u8]) -> std::io::Resul
     stream.write_all(bytes).await
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_message_too_large() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    let server_handle = task::spawn(async move {
+    let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
         pinhole::handle_connection(app, &mut stream).await
     });
@@ -86,14 +85,14 @@ async fn test_message_too_large() {
     drop(server_handle);
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_invalid_cbor_data() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    let server_handle = task::spawn(async move {
+    let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
         pinhole::handle_connection(app, &mut stream).await
     });
@@ -122,14 +121,14 @@ async fn test_invalid_cbor_data() {
     drop(server_handle);
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_truncated_message() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    let server_handle = task::spawn(async move {
+    let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
         pinhole::handle_connection(app, &mut stream).await
     });
@@ -161,14 +160,14 @@ async fn test_truncated_message() {
     drop(server_handle);
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_zero_length_message() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    task::spawn(async move {
+    tokio::spawn(async move {
         let mut stream = server_stream;
         let _ = pinhole::handle_connection(app, &mut stream).await;
     });
@@ -189,14 +188,14 @@ async fn test_zero_length_message() {
     );
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_wrong_message_structure() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    let server_handle = task::spawn(async move {
+    let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
         pinhole::handle_connection(app, &mut stream).await
     });
@@ -226,14 +225,14 @@ async fn test_wrong_message_structure() {
     drop(server_handle);
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_partial_length_header() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    let server_handle = task::spawn(async move {
+    let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
         pinhole::handle_connection(app, &mut stream).await
     });
@@ -250,14 +249,14 @@ async fn test_partial_length_header() {
     drop(server_handle);
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_message_at_exact_size_limit() {
     let (mut client_stream, server_stream) =
         UnixStream::pair().expect("Failed to create socket pair");
     let app = test_app::TestApp;
 
     // Spawn server task
-    task::spawn(async move {
+    tokio::spawn(async move {
         let mut stream = server_stream;
         let _ = pinhole::handle_connection(app, &mut stream).await;
     });
@@ -281,7 +280,7 @@ async fn test_message_at_exact_size_limit() {
 
     // Should get a response since this is a valid message
     let mut response_len_bytes = [0u8; 4];
-    let read_result = async_std::future::timeout(
+    let read_result = tokio::time::timeout(
         Duration::from_secs(2),
         client_stream.read(&mut response_len_bytes),
     )

@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod common;
 
-use async_std::future::timeout;
-use async_std::os::unix::net::UnixStream;
-use async_std::task;
 use async_trait::async_trait;
 use common::{assert_error, assert_redirect, assert_render, assert_store};
 use pinhole::{
@@ -15,6 +12,8 @@ use pinhole_protocol::network::{receive_server_message, send_message_to_server};
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use pinhole_protocol::stylesheet::Direction;
 use std::time::Duration;
+use tokio::net::UnixStream;
+use tokio::time::timeout;
 
 /// Simple test application
 #[derive(Clone, Copy)]
@@ -210,7 +209,7 @@ impl TestFixture {
         let app = TestApp;
 
         // Spawn server task
-        task::spawn(async move {
+        tokio::spawn(async move {
             let mut stream = server_stream;
             let _ = pinhole::handle_connection(app, &mut stream).await;
         });
@@ -317,7 +316,7 @@ impl TestClient {
     }
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_real_client_server_basic_load() {
     let mut fixture = TestFixture::new();
 
@@ -342,7 +341,7 @@ async fn test_real_client_server_basic_load() {
     );
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_real_client_server_with_storage() {
     let mut fixture = TestFixture::new();
 
@@ -404,7 +403,7 @@ async fn test_real_client_server_with_storage() {
     );
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_real_client_server_route_not_found() {
     let mut fixture = TestFixture::new();
 
@@ -423,7 +422,7 @@ async fn test_real_client_server_route_not_found() {
     assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_real_client_server_multiple_requests() {
     let mut fixture = TestFixture::new();
 
@@ -451,7 +450,7 @@ async fn test_real_client_server_multiple_requests() {
     }
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_redirect_response() {
     let mut fixture = TestFixture::new();
 
@@ -470,7 +469,7 @@ async fn test_redirect_response() {
     assert_redirect(&messages, "/hello");
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_action_route_not_found() {
     let mut fixture = TestFixture::new();
 
@@ -489,7 +488,7 @@ async fn test_action_route_not_found() {
     assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_internal_error_from_action() {
     let mut fixture = TestFixture::new();
 
@@ -512,7 +511,7 @@ async fn test_internal_error_from_action() {
     );
 }
 
-#[async_std::test]
+#[tokio::test]
 async fn test_button_and_container_nodes() {
     let mut fixture = TestFixture::new();
 

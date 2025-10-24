@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 pinhole.workspace = true
-async-std.workspace = true
+tokio.workspace = true
 log.workspace = true
 kv-log-macro.workspace = true
 femme.workspace = true

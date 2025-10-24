@@ -8,12 +8,12 @@ edition = "2021"
 
 [dependencies]
 pinhole-protocol.workspace = true
-async-std = { workspace = true, features = ["attributes"] }
+tokio.workspace = true
 log.workspace = true
 kv-log-macro.workspace = true
 femme.workspace = true
 async-trait.workspace = true
-async-native-tls.workspace = true
+tokio-native-tls.workspace = true
 
 [dev-dependencies]
 serde_cbor.workspace = true

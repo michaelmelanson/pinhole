@@ -1,6 +1,9 @@
-use async_native_tls::{Certificate, Identity, TlsAcceptor, TlsConnector};
 use std::fmt;
 use std::fs;
+use tokio_native_tls::{
+    native_tls::{Certificate, Identity},
+    TlsAcceptor, TlsConnector,
+};
 
 /// TLS configuration errors
 #[derive(Debug)]
@@ -172,7 +175,10 @@ impl ClientTlsConfig {
             builder.add_root_certificate(ca_cert);
         }
 
-        let connector = TlsConnector::from(builder);
+        let native_connector = builder
+            .build()
+            .map_err(|e| TlsConfigError::AcceptorBuildError(e.to_string()))?;
+        let connector = TlsConnector::from(native_connector);
 
         Ok(connector)
     }

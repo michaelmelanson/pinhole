@@ -8,13 +8,13 @@ edition = "2021"
 
 [dependencies]
 serde.workspace = true
-async-std.workspace = true
+tokio.workspace = true
 serde_cbor.workspace = true
 log.workspace = true
 kv-log-macro.workspace = true
-async-native-tls.workspace = true
+tokio-native-tls.workspace = true
 native-tls.workspace = true
 
 [dev-dependencies]
-async-std = { workspace = true, features = ["attributes"] }
+tokio.workspace = true
 tempfile.workspace = true

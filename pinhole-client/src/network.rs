@@ -1,10 +1,11 @@
-use async_native_tls::TlsStream;
-use async_std::{
-    channel::{unbounded, Receiver, Sender},
-    net::TcpStream,
-    task,
-};
 use futures::{select, FutureExt};
+use tokio::{
+    net::TcpStream,
+    sync::broadcast::{channel as broadcast_channel, Sender as BroadcastSender},
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+};
+use tokio_native_tls::TlsStream;
+use tokio_stream::wrappers::BroadcastStream;
 
 use kv_log_macro as log;
 
@@ -42,36 +43,35 @@ pub enum NetworkSessionEvent {
 
 #[derive(Clone)]
 pub struct NetworkSession {
-    command_sender: Sender<NetworkSessionCommand>,
-    event_receiver: Receiver<NetworkSessionEvent>,
+    command_sender: UnboundedSender<NetworkSessionCommand>,
+    event_sender: BroadcastSender<NetworkSessionEvent>,
 }
 
 impl NetworkSession {
     pub fn new(address: String) -> NetworkSession {
-        let (command_sender, command_receiver) = unbounded::<NetworkSessionCommand>();
-        let (event_sender, event_receiver) = unbounded::<NetworkSessionEvent>();
+        let (command_sender, command_receiver) = unbounded_channel::<NetworkSessionCommand>();
+        let (event_sender, _event_receiver) = broadcast_channel::<NetworkSessionEvent>(100);
 
         let address = address.clone();
-        task::spawn(session_loop(
+        tokio::spawn(session_loop(
             address.clone(),
             command_receiver,
-            event_sender,
+            event_sender.clone(),
         ));
 
         NetworkSession {
             command_sender,
-            event_receiver,
+            event_sender,
         }
     }
 
-    pub async fn action(&self, action: &Action, storage: &StateMap) -> Result<()> {
+    pub fn action(&self, action: &Action, storage: &StateMap) -> Result<()> {
         let action = action.clone();
         self.command_sender
             .send(NetworkSessionCommand::Action {
                 action,
                 storage: storage.clone(),
             })
-            .await
             .map_err(|e| {
                 log::error!("Network session thread is dead: {:?}", e);
                 NetworkError::ProtocolError("Network session is not running".to_string())
@@ -81,26 +81,23 @@ impl NetworkSession {
     pub fn load(&self, path: &str) -> Result<()> {
         let path = path.to_string();
 
-        task::block_on(async {
-            self.command_sender
-                .send(NetworkSessionCommand::Load { path })
-                .await
-                .map_err(|e| {
-                    log::error!("Network session thread is dead: {:?}", e);
-                    NetworkError::ProtocolError("Network session is not running".to_string())
-                })
-        })
+        self.command_sender
+            .send(NetworkSessionCommand::Load { path })
+            .map_err(|e| {
+                log::error!("Network session thread is dead: {:?}", e);
+                NetworkError::ProtocolError("Network session is not running".to_string())
+            })
     }
 
-    pub fn event_receiver(&self) -> Receiver<NetworkSessionEvent> {
-        self.event_receiver.clone()
+    pub fn event_receiver(&self) -> BroadcastStream<NetworkSessionEvent> {
+        BroadcastStream::new(self.event_sender.subscribe())
     }
 }
 
 async fn session_loop(
     address: String,
-    command_receiver: Receiver<NetworkSessionCommand>,
-    event_sender: Sender<NetworkSessionEvent>,
+    mut command_receiver: UnboundedReceiver<NetworkSessionCommand>,
+    event_sender: BroadcastSender<NetworkSessionEvent>,
 ) -> Result<()> {
     let mut current_path: Option<String> = None;
     let mut storage_manager = StorageManager::new(address.clone())
@@ -139,7 +136,7 @@ async fn session_loop(
                 }
                 Err(err) => {
                     log::warn!("Error trying to connect (will retry in 1s): {:?}", err);
-                    task::sleep(Duration::from_millis(1000)).await;
+                    tokio::time::sleep(Duration::from_millis(1000)).await;
                 }
             }
         }
@@ -161,7 +158,7 @@ async fn session_loop(
         'connection: loop {
             select! {
               command = command_receiver.recv().fuse() => {
-                if let Ok(command) = command {
+                if let Some(command) = command {
                     log::info!("Received command from app", {command: command});
                     match command {
                         NetworkSessionCommand::Action { action, storage } => {
@@ -189,7 +186,7 @@ async fn session_loop(
                 log::info!("Received message from server", {message: message});
                   match message {
                     ServerToClientMessage::Render { document } => {
-                      if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)).await {
+                      if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)) {
                         log::error!("UI thread closed, shutting down network session: {:?}", e);
                         break 'main;
                       }
@@ -211,7 +208,7 @@ async fn session_loop(
                       if let Err(e) = event_sender.send(NetworkSessionEvent::ServerError {
                         code: code.as_u16(),
                         message,
-                      }).await {
+                      }) {
                         log::error!("UI thread closed, shutting down network session: {:?}", e);
                         break 'main;
                       }

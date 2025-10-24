@@ -7,6 +7,7 @@ mod ui_node;
 
 use kv_log_macro as log;
 
+use futures::StreamExt;
 use iced::{widget::Container, Alignment, Length, Subscription, Task};
 
 use network::{NetworkSession, NetworkSessionEvent};
@@ -69,8 +70,13 @@ impl Pinhole {
     }
 
     fn subscription(&self) -> Subscription<PinholeMessage> {
-        Subscription::run_with_id("network_session", self.network_session.event_receiver())
-            .map(PinholeMessage::NetworkSessionEvent)
+        Subscription::run_with_id(
+            "network_session",
+            self.network_session
+                .event_receiver()
+                .filter_map(|result| async move { result.ok() }),
+        )
+        .map(PinholeMessage::NetworkSessionEvent)
     }
 
     fn update(&mut self, message: PinholeMessage) -> iced::Task<PinholeMessage> {
@@ -103,7 +109,7 @@ impl Pinhole {
                 let state_map = self.context.state_map.clone();
                 command = Task::perform(
                     async move {
-                        if let Err(e) = network_session.action(&action, &state_map).await {
+                        if let Err(e) = network_session.action(&action, &state_map) {
                             log::error!("Failed to send action: {}", e);
                         }
                     },
@@ -121,7 +127,7 @@ impl Pinhole {
                     let state_map = self.context.state_map.clone();
                     command = Task::perform(
                         async move {
-                            if let Err(e) = network_session.action(&action, &state_map).await {
+                            if let Err(e) = network_session.action(&action, &state_map) {
                                 log::error!("Failed to send action: {}", e);
                             }
                         },
