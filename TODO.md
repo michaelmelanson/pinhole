@@ -24,7 +24,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Add malformed message handling tests
 - [x] Add concurrent connection tests
 - [ ] Add security vulnerability tests (fuzzing, boundary conditions)
-- [ ] Add action dispatch tests
+- [x] Add action dispatch tests
 - [ ] Add route matching tests
 - [ ] Add stylesheet application tests
 - [ ] Add UI rendering tests
