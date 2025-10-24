@@ -1,8 +1,11 @@
 //! Common test utilities shared across integration tests
 
-use pinhole::Node;
+use pinhole::{Application, Node};
 use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
 use pinhole_protocol::storage::{StateValue, StorageScope};
+use std::time::Duration;
+use tempfile::NamedTempFile;
+use tokio::net::{UnixListener, UnixStream};
 
 /// Assert that messages contain a single Render with expected node
 pub fn assert_render(messages: &[ServerToClientMessage], expected_node: Node) {
@@ -52,4 +55,47 @@ pub fn assert_redirect(messages: &[ServerToClientMessage], expected_path: &str) 
         panic!("Expected RedirectTo message");
     };
     assert_eq!(path, expected_path);
+}
+
+/// Start a test server with the given application
+///
+/// Returns the socket path for clients to connect to. The server runs in the background
+/// and will accept connections until dropped.
+pub fn start_test_server<A: Application + 'static>(app: A) -> String {
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let socket_path = temp_file.path().with_extension("sock");
+    drop(temp_file);
+
+    let listener = UnixListener::bind(&socket_path).expect("Failed to bind socket");
+    let socket_path_str = socket_path.to_string_lossy().to_string();
+
+    // Spawn server task
+    tokio::spawn(async move {
+        loop {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let _ = pinhole::handle_connection(app, &mut stream).await;
+                });
+            }
+        }
+    });
+
+    socket_path_str
+}
+
+/// Connect to a test server with retry logic
+///
+/// Retries connection with backoff to handle server startup race conditions.
+pub async fn connect_test_client(socket_path: &str) -> UnixStream {
+    // Retry connection with backoff to handle server startup race
+    for i in 0..10 {
+        if let Ok(stream) = UnixStream::connect(socket_path).await {
+            return stream;
+        }
+        tokio::task::yield_now().await;
+        if i > 5 {
+            tokio::time::sleep(Duration::from_micros(100)).await;
+        }
+    }
+    panic!("Failed to connect to test server at {}", socket_path)
 }

@@ -1,23 +1,14 @@
-//! Comprehensive Action Dispatch Tests
-//!
-//! These tests verify the action dispatching system including:
-//! - Action argument handling
-//! - Action keys and state capture
-//! - Multiple actions on same route
-//! - Storage modifications via context.store()
-//! - Redirects from actions via context.redirect()
-//! - Error handling
-//! - Edge cases and invalid inputs
+#[cfg(test)]
+mod common;
 
 use async_trait::async_trait;
+use common::{connect_test_client, start_test_server};
 use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
 use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use std::collections::HashMap;
-use std::time::Duration;
-use tempfile::NamedTempFile;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixStream;
 
 // Test application
 #[derive(Clone, Copy)]
@@ -383,32 +374,7 @@ impl Route for ComplexDataRoute {
     }
 }
 
-// Helper to create test server and client
-async fn setup_test_server() -> (UnixListener, String) {
-    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
-    let socket_path = temp_file.path().with_extension("sock");
-    drop(temp_file);
-
-    let listener = UnixListener::bind(&socket_path).expect("Failed to bind socket");
-    let socket_path_str = socket_path.to_string_lossy().to_string();
-
-    (listener, socket_path_str)
-}
-
-async fn connect_client(socket_path: &str) -> UnixStream {
-    // Retry connection with backoff to handle server startup race
-    for i in 0..10 {
-        if let Ok(stream) = UnixStream::connect(socket_path).await {
-            return stream;
-        }
-        tokio::task::yield_now().await;
-        if i > 5 {
-            tokio::time::sleep(Duration::from_micros(100)).await;
-        }
-    }
-    panic!("Failed to connect to server")
-}
-
+// Helper functions for tests
 async fn send_action(
     stream: &mut UnixStream,
     path: &str,
@@ -438,22 +404,9 @@ async fn receive_message(
 
 #[tokio::test]
 async fn test_action_with_single_argument() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    // Start server
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Send action with single argument
     let mut args = HashMap::new();
@@ -481,21 +434,9 @@ async fn test_action_with_single_argument() {
 
 #[tokio::test]
 async fn test_action_with_multiple_arguments() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Send action with multiple arguments
     let mut args = HashMap::new();
@@ -527,21 +468,9 @@ async fn test_action_with_multiple_arguments() {
 
 #[tokio::test]
 async fn test_action_with_keys_capturing_storage() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Create storage with field values
     let mut storage = StateMap::new();
@@ -585,21 +514,9 @@ async fn test_action_with_keys_capturing_storage() {
 
 #[tokio::test]
 async fn test_multiple_actions_on_same_route() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Test increment action
     let action = Action::new("increment", HashMap::new(), vec![]);
@@ -660,21 +577,9 @@ async fn test_multiple_actions_on_same_route() {
 
 #[tokio::test]
 async fn test_action_with_storage_scopes() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Test session storage
     let action = Action::new("store_session", HashMap::new(), vec![]);
@@ -715,21 +620,9 @@ async fn test_action_with_storage_scopes() {
 
 #[tokio::test]
 async fn test_action_with_redirect() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let action = Action::new("go_home", HashMap::new(), vec![]);
     send_action(&mut client, "/redirect", action, StateMap::new())
@@ -749,21 +642,9 @@ async fn test_action_with_redirect() {
 
 #[tokio::test]
 async fn test_action_with_dynamic_redirect_path() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let mut args = HashMap::new();
     args.insert("path".to_string(), "/custom/path".to_string());
@@ -786,21 +667,9 @@ async fn test_action_with_dynamic_redirect_path() {
 
 #[tokio::test]
 async fn test_action_error_handling() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let action = Action::new("trigger_error", HashMap::new(), vec![]);
     send_action(&mut client, "/error", action, StateMap::new())
@@ -821,21 +690,9 @@ async fn test_action_error_handling() {
 
 #[tokio::test]
 async fn test_action_conditional_error() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Test error case
     let mut args = HashMap::new();
@@ -879,21 +736,9 @@ async fn test_action_conditional_error() {
 
 #[tokio::test]
 async fn test_action_with_boolean_storage() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let mut args = HashMap::new();
     args.insert("value".to_string(), "true".to_string());
@@ -917,21 +762,9 @@ async fn test_action_with_boolean_storage() {
 
 #[tokio::test]
 async fn test_action_with_empty_storage_value() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let action = Action::new("store_empty", HashMap::new(), vec![]);
     send_action(&mut client, "/complex", action, StateMap::new())
@@ -952,21 +785,9 @@ async fn test_action_with_empty_storage_value() {
 
 #[tokio::test]
 async fn test_action_route_not_found() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     let action = Action::new("any_action", HashMap::new(), vec![]);
     send_action(&mut client, "/nonexistent", action, StateMap::new())
@@ -987,21 +808,9 @@ async fn test_action_route_not_found() {
 
 #[tokio::test]
 async fn test_action_with_empty_arguments() {
-    let (listener, socket_path) = setup_test_server().await;
+    let socket_path = start_test_server(ActionTestApp);
 
-    let _server = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _)) = listener.accept().await {
-                let app = ActionTestApp;
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
-
-    let mut client = connect_client(&socket_path).await;
+    let mut client = connect_test_client(&socket_path).await;
 
     // Action with empty args should work fine - increment just uses default
     let action = Action::new("increment", HashMap::new(), vec![]);

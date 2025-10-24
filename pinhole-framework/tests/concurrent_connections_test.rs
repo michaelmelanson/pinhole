@@ -6,14 +6,13 @@
 mod common;
 
 use async_trait::async_trait;
-use common::assert_render;
+use common::{assert_render, start_test_server};
 use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
 use pinhole_protocol::messages::{ClientToServerMessage, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
 use pinhole_protocol::storage::{StateMap, StateValue};
 use std::time::Duration;
-use tempfile::NamedTempFile;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::net::UnixStream;
 
 // Test application
 #[derive(Copy, Clone)]
@@ -143,26 +142,7 @@ async fn send_request_and_receive(
 
 #[tokio::test]
 async fn test_multiple_concurrent_connections() {
-    // Create unique temporary socket path
-    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
-    let socket_path = temp_file.path().with_extension("sock");
-    drop(temp_file); // Delete the temp file so we can use the path for a socket
-
-    let listener = UnixListener::bind(&socket_path).expect("Failed to bind socket");
-
-    let app = ConcurrentTestApp;
-
-    // Spawn server that accepts multiple connections
-    let server_task = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _addr)) = listener.accept().await {
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
+    let socket_path = start_test_server(ConcurrentTestApp);
 
     // Spawn multiple concurrent clients
     let num_clients = 5;
@@ -172,7 +152,7 @@ async fn test_multiple_concurrent_connections() {
         let socket_path_clone = socket_path.clone();
         let task = tokio::spawn(async move {
             send_request_and_receive(
-                socket_path_clone.to_str().unwrap(),
+                &socket_path_clone,
                 "/hello",
                 StateMap::new(),
             )
@@ -195,32 +175,11 @@ async fn test_multiple_concurrent_connections() {
     }
 
     // Clean up
-    drop(server_task);
-    let _ = std::fs::remove_file(&socket_path);
 }
 
 #[tokio::test]
 async fn test_concurrent_requests_to_shared_state() {
-    // Create unique temporary socket path
-    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
-    let socket_path = temp_file.path().with_extension("sock");
-    drop(temp_file); // Delete the temp file so we can use the path for a socket
-
-    let listener = UnixListener::bind(&socket_path).expect("Failed to bind socket");
-
-    let app = ConcurrentTestApp;
-
-    // Spawn server that accepts multiple connections
-    let server_task = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _addr)) = listener.accept().await {
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
+    let socket_path = start_test_server(ConcurrentTestApp);
 
     // Spawn multiple concurrent clients, each with their own client_id
     let num_requests = 10;
@@ -236,7 +195,7 @@ async fn test_concurrent_requests_to_shared_state() {
             );
 
             let messages =
-                send_request_and_receive(socket_path_clone.to_str().unwrap(), "/echo", storage)
+                send_request_and_receive(&socket_path_clone, "/echo", storage)
                     .await
                     .expect(&format!("Client {} failed", i));
 
@@ -274,32 +233,11 @@ async fn test_concurrent_requests_to_shared_state() {
     assert_eq!(received_ids, expected);
 
     // Clean up
-    drop(server_task);
-    let _ = std::fs::remove_file(&socket_path);
 }
 
 #[tokio::test]
 async fn test_interleaved_requests() {
-    // Create unique temporary socket path
-    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
-    let socket_path = temp_file.path().with_extension("sock");
-    drop(temp_file); // Delete the temp file so we can use the path for a socket
-
-    let listener = UnixListener::bind(&socket_path).expect("Failed to bind socket");
-
-    let app = ConcurrentTestApp;
-
-    // Spawn server
-    let server_task = tokio::spawn(async move {
-        loop {
-            if let Ok((mut stream, _addr)) = listener.accept().await {
-                tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
-                });
-            }
-        }
-    });
-
+    let socket_path = start_test_server(ConcurrentTestApp);
 
     // Create two clients that will send multiple requests
     let socket_path1 = socket_path.clone();
@@ -315,7 +253,7 @@ async fn test_interleaved_requests() {
         // Send 3 requests to /echo
         for i in 0..3 {
             let messages =
-                send_request_and_receive(socket_path1.to_str().unwrap(), "/echo", storage.clone())
+                send_request_and_receive(&socket_path1, "/echo", storage.clone())
                     .await
                     .expect(&format!("Client 1 request {} failed", i));
 
@@ -343,7 +281,7 @@ async fn test_interleaved_requests() {
         // Send 3 requests to /echo
         for i in 0..3 {
             let messages =
-                send_request_and_receive(socket_path2.to_str().unwrap(), "/echo", storage.clone())
+                send_request_and_receive(&socket_path2, "/echo", storage.clone())
                     .await
                     .expect(&format!("Client 2 request {} failed", i));
 
@@ -366,6 +304,4 @@ async fn test_interleaved_requests() {
     let _ = client2.await;
 
     // Clean up
-    drop(server_task);
-    let _ = std::fs::remove_file(&socket_path);
 }
