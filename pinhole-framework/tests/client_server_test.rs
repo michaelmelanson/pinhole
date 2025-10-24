@@ -1,7 +1,11 @@
+#[cfg(test)]
+mod common;
+
 use async_std::future::timeout;
 use async_std::os::unix::net::UnixStream;
 use async_std::task;
 use async_trait::async_trait;
+use common::{assert_error, assert_redirect, assert_render, assert_store};
 use pinhole::{
     Action, Application, ButtonProps, ContainerProps, Context, Document, Node, Render, Route,
     TextProps,
@@ -215,53 +219,6 @@ impl TestFixture {
             client: TestClient::new(client_stream),
         }
     }
-
-    /// Assert that messages contain a single Render with expected node
-    fn assert_render(messages: &[ServerToClientMessage], expected_node: Node) {
-        assert_eq!(messages.len(), 1);
-        let ServerToClientMessage::Render { document } = &messages[0] else {
-            panic!("Expected Render message");
-        };
-        assert_eq!(document.node, expected_node);
-    }
-
-    /// Assert that messages contain a single Store message with expected values
-    fn assert_store(
-        messages: &[ServerToClientMessage],
-        expected_key: &str,
-        expected_value: StateValue,
-    ) {
-        assert_eq!(messages.len(), 1);
-        let ServerToClientMessage::Store { scope, key, value } = &messages[0] else {
-            panic!("Expected Store message, got: {:?}", messages[0]);
-        };
-        assert_eq!(*scope, StorageScope::Session);
-        assert_eq!(key, expected_key);
-        assert_eq!(*value, expected_value);
-    }
-
-    /// Assert that messages contain a single Error with expected code
-    fn assert_error(
-        messages: &[ServerToClientMessage],
-        expected_code: ErrorCode,
-        contains_text: &str,
-    ) {
-        assert_eq!(messages.len(), 1);
-        let ServerToClientMessage::Error { code, message } = &messages[0] else {
-            panic!("Expected Error message");
-        };
-        assert_eq!(*code, expected_code);
-        assert!(message.contains(contains_text));
-    }
-
-    /// Assert that messages contain a single RedirectTo with expected path
-    fn assert_redirect(messages: &[ServerToClientMessage], expected_path: &str) {
-        assert_eq!(messages.len(), 1);
-        let ServerToClientMessage::RedirectTo { path } = &messages[0] else {
-            panic!("Expected RedirectTo message");
-        };
-        assert_eq!(path, expected_path);
-    }
 }
 
 /// Helper to create storage with a count value
@@ -376,7 +333,7 @@ async fn test_real_client_server_basic_load() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_render(
+    assert_render(
         &messages,
         Node::Text(TextProps {
             text: "Hello from real server!".to_string(),
@@ -401,7 +358,7 @@ async fn test_real_client_server_with_storage() {
         .receive_all_messages()
         .await
         .expect("Failed to receive");
-    TestFixture::assert_render(
+    assert_render(
         &messages,
         Node::Text(TextProps {
             text: "Count: 0".to_string(),
@@ -423,7 +380,7 @@ async fn test_real_client_server_with_storage() {
         .expect("Failed to receive");
 
     // Actions don't automatically re-render, so we just get Store message
-    TestFixture::assert_store(&messages, "count", StateValue::String("1".to_string()));
+    assert_store(&messages, "count", StateValue::String("1".to_string()));
 
     // Now send a Load request to see the updated count
     fixture
@@ -438,7 +395,7 @@ async fn test_real_client_server_with_storage() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_render(
+    assert_render(
         &messages,
         Node::Text(TextProps {
             text: "Count: 1".to_string(),
@@ -463,7 +420,7 @@ async fn test_real_client_server_route_not_found() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
+    assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
 }
 
 #[async_std::test]
@@ -484,7 +441,7 @@ async fn test_real_client_server_multiple_requests() {
             .await
             .expect("Failed to receive");
 
-        TestFixture::assert_render(
+        assert_render(
             &messages,
             Node::Text(TextProps {
                 text: "Hello from real server!".to_string(),
@@ -510,7 +467,7 @@ async fn test_redirect_response() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_redirect(&messages, "/hello");
+    assert_redirect(&messages, "/hello");
 }
 
 #[async_std::test]
@@ -529,7 +486,7 @@ async fn test_action_route_not_found() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
+    assert_error(&messages, ErrorCode::NotFound, "/nonexistent");
 }
 
 #[async_std::test]
@@ -548,7 +505,7 @@ async fn test_internal_error_from_action() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_error(
+    assert_error(
         &messages,
         ErrorCode::InternalServerError,
         "Intentional error",
@@ -571,7 +528,7 @@ async fn test_button_and_container_nodes() {
         .await
         .expect("Failed to receive");
 
-    TestFixture::assert_render(
+    assert_render(
         &messages,
         Node::Container(ContainerProps {
             direction: Direction::Vertical,

@@ -1,32 +1,21 @@
 //! Concurrent connection tests
 //!
 //! These tests verify that the server can handle multiple simultaneous client connections.
-//! They use a global counter, so they must be run with --test-threads=1 to avoid interference.
-//!
-//! Run with: cargo test --test concurrent_connections_test -- --test-threads=1
+
+#[cfg(test)]
+mod common;
 
 use async_std::os::unix::net::UnixListener;
 use async_std::prelude::*;
 use async_std::task;
 use async_trait::async_trait;
+use common::assert_render;
 use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
 use pinhole_protocol::messages::{ClientToServerMessage, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
-use pinhole_protocol::storage::StateMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use pinhole_protocol::storage::{StateMap, StateValue};
 use std::time::Duration;
-
-// Static counter for testing concurrent access
-// Note: This means these tests must run serially (--test-threads=1)
-static GLOBAL_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-fn reset_counter() {
-    GLOBAL_COUNTER.store(0, Ordering::SeqCst);
-}
-
-fn get_counter() -> usize {
-    GLOBAL_COUNTER.load(Ordering::SeqCst)
-}
+use tempfile::NamedTempFile;
 
 // Test application
 #[derive(Copy, Clone)]
@@ -34,7 +23,7 @@ struct ConcurrentTestApp;
 
 impl Application for ConcurrentTestApp {
     fn routes(&self) -> Vec<Box<dyn Route>> {
-        vec![Box::new(HelloRoute), Box::new(CounterRoute)]
+        vec![Box::new(HelloRoute), Box::new(EchoRoute)]
     }
 }
 
@@ -65,13 +54,12 @@ impl Route for HelloRoute {
     }
 }
 
-// Route that increments a counter on each request (for testing concurrent access)
-struct CounterRoute;
+struct EchoRoute;
 
 #[async_trait]
-impl Route for CounterRoute {
+impl Route for EchoRoute {
     fn path(&self) -> &'static str {
-        "/counter"
+        "/echo"
     }
 
     async fn action<'a>(
@@ -82,11 +70,17 @@ impl Route for CounterRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
-        let count = GLOBAL_COUNTER.fetch_add(1, Ordering::SeqCst);
+    async fn render(&self, storage: &StateMap) -> Render {
+        // Echo back the "client_id" value from storage
+        let text = if let Some(StateValue::String(id)) = storage.get("client_id") {
+            format!("Echo: {}", id)
+        } else {
+            "No client_id".to_string()
+        };
+
         Render::Document(Document {
             node: Node::Text(TextProps {
-                text: format!("Request #{}", count),
+                text,
                 classes: vec![],
             }),
             stylesheet: Default::default(),
@@ -98,12 +92,13 @@ impl Route for CounterRoute {
 async fn send_request_and_receive(
     socket_path: &str,
     path: &str,
+    storage: StateMap,
 ) -> pinhole::Result<Vec<ServerToClientMessage>> {
     let mut stream = async_std::os::unix::net::UnixStream::connect(socket_path).await?;
 
     let request = ClientToServerMessage::Load {
         path: path.to_string(),
-        storage: StateMap::new(),
+        storage,
     };
 
     send_message_to_server(&mut stream, request).await?;
@@ -139,12 +134,12 @@ async fn send_request_and_receive(
 
 #[async_std::test]
 async fn test_multiple_concurrent_connections() {
-    let socket_path = "/tmp/pinhole_test_concurrent.sock";
+    // Create unique temporary socket path
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let socket_path = temp_file.path().with_extension("sock");
+    drop(temp_file); // Delete the temp file so we can use the path for a socket
 
-    // Clean up any existing socket
-    let _ = std::fs::remove_file(socket_path);
-
-    let listener = UnixListener::bind(socket_path)
+    let listener = UnixListener::bind(&socket_path)
         .await
         .expect("Failed to bind socket");
 
@@ -170,11 +165,15 @@ async fn test_multiple_concurrent_connections() {
     let mut client_tasks = Vec::new();
 
     for i in 0..num_clients {
-        let socket_path = socket_path.to_string();
+        let socket_path_clone = socket_path.clone();
         let task = task::spawn(async move {
-            send_request_and_receive(&socket_path, "/hello")
-                .await
-                .expect(&format!("Client {} failed", i))
+            send_request_and_receive(
+                socket_path_clone.to_str().unwrap(),
+                "/hello",
+                StateMap::new(),
+            )
+            .await
+            .expect(&format!("Client {} failed", i))
         });
         client_tasks.push(task);
     }
@@ -182,25 +181,28 @@ async fn test_multiple_concurrent_connections() {
     // Wait for all clients to complete
     for task in client_tasks {
         let messages = task.await;
-        assert_eq!(messages.len(), 1);
-        assert!(matches!(messages[0], ServerToClientMessage::Render { .. }));
+        assert_render(
+            &messages,
+            Node::Text(TextProps {
+                text: "Hello".to_string(),
+                classes: vec![],
+            }),
+        );
     }
 
     // Clean up
     drop(server_task);
-    let _ = std::fs::remove_file(socket_path);
+    let _ = std::fs::remove_file(&socket_path);
 }
 
 #[async_std::test]
 async fn test_concurrent_requests_to_shared_state() {
-    reset_counter();
+    // Create unique temporary socket path
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let socket_path = temp_file.path().with_extension("sock");
+    drop(temp_file); // Delete the temp file so we can use the path for a socket
 
-    let socket_path = "/tmp/pinhole_test_concurrent_state.sock";
-
-    // Clean up any existing socket
-    let _ = std::fs::remove_file(socket_path);
-
-    let listener = UnixListener::bind(socket_path)
+    let listener = UnixListener::bind(&socket_path)
         .await
         .expect("Failed to bind socket");
 
@@ -221,68 +223,70 @@ async fn test_concurrent_requests_to_shared_state() {
     // Give server time to start
     task::sleep(Duration::from_millis(50)).await;
 
-    // Spawn multiple concurrent clients hitting the counter route
+    // Spawn multiple concurrent clients, each with their own client_id
     let num_requests = 10;
     let mut client_tasks = Vec::new();
 
     for i in 0..num_requests {
-        let socket_path = socket_path.to_string();
+        let socket_path_clone = socket_path.clone();
         let task = task::spawn(async move {
-            send_request_and_receive(&socket_path, "/counter")
-                .await
-                .expect(&format!("Client {} failed", i))
+            let mut storage = StateMap::new();
+            storage.insert(
+                "client_id".to_string(),
+                StateValue::String(format!("client-{}", i)),
+            );
+
+            let messages =
+                send_request_and_receive(socket_path_clone.to_str().unwrap(), "/echo", storage)
+                    .await
+                    .expect(&format!("Client {} failed", i));
+
+            (i, messages)
         });
         client_tasks.push(task);
     }
 
-    // Wait for all clients to complete
-    let mut received_counts = Vec::new();
+    // Wait for all clients to complete and verify each got their own ID back
+    let mut received_ids = Vec::new();
     for task in client_tasks {
-        let messages = task.await;
+        let (client_num, messages) = task.await;
         assert_eq!(messages.len(), 1);
 
-        if let ServerToClientMessage::Render { document } = &messages[0] {
-            if let Node::Text(props) = &document.node {
-                // Extract the count from "Request #N"
-                if let Some(count_str) = props.text.strip_prefix("Request #") {
-                    if let Ok(count) = count_str.parse::<usize>() {
-                        received_counts.push(count);
-                    }
-                }
-            }
-        }
+        let ServerToClientMessage::Render { document } = &messages[0] else {
+            panic!("Expected Render message");
+        };
+
+        let Node::Text(props) = &document.node else {
+            panic!("Expected Text node");
+        };
+
+        // Should get back "Echo: client-N"
+        let expected = format!("Echo: client-{}", client_num);
+        assert_eq!(props.text, expected);
+        received_ids.push(client_num);
     }
 
     // All requests should have completed
-    assert_eq!(received_counts.len(), num_requests);
+    assert_eq!(received_ids.len(), num_requests);
 
-    // The counter should have been incremented exactly num_requests times
-    // (the counts should be 0..num_requests-1 in some order)
-    received_counts.sort();
+    // All IDs should be unique
+    received_ids.sort();
     let expected: Vec<usize> = (0..num_requests).collect();
-    assert_eq!(
-        received_counts, expected,
-        "Counter should have incremented atomically"
-    );
-
-    // Verify the final count
-    assert_eq!(get_counter(), num_requests);
+    assert_eq!(received_ids, expected);
 
     // Clean up
     drop(server_task);
-    let _ = std::fs::remove_file(socket_path);
+    let _ = std::fs::remove_file(&socket_path);
 }
 
 #[async_std::test]
 async fn test_interleaved_requests() {
-    reset_counter();
+    // Create unique temporary socket path
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let socket_path = temp_file.path().with_extension("sock");
+    drop(temp_file); // Delete the temp file so we can use the path for a socket
 
-    let socket_path = "/tmp/pinhole_test_interleaved.sock";
-
-    // Clean up any existing socket
-    let _ = std::fs::remove_file(socket_path);
-
-    let listener = UnixListener::bind(socket_path)
+    let listener = UnixListener::bind(&socket_path)
         .await
         .expect("Failed to bind socket");
 
@@ -304,22 +308,62 @@ async fn test_interleaved_requests() {
     task::sleep(Duration::from_millis(50)).await;
 
     // Create two clients that will send multiple requests
-    let socket_path1 = socket_path.to_string();
-    let socket_path2 = socket_path.to_string();
+    let socket_path1 = socket_path.clone();
+    let socket_path2 = socket_path.clone();
 
     let client1 = task::spawn(async move {
-        for _ in 0..3 {
-            send_request_and_receive(&socket_path1, "/hello")
-                .await
-                .expect("Client 1 failed");
+        let mut storage = StateMap::new();
+        storage.insert(
+            "client_id".to_string(),
+            StateValue::String("client-A".to_string()),
+        );
+
+        // Send 3 requests to /echo
+        for i in 0..3 {
+            let messages =
+                send_request_and_receive(socket_path1.to_str().unwrap(), "/echo", storage.clone())
+                    .await
+                    .expect(&format!("Client 1 request {} failed", i));
+
+            assert_eq!(messages.len(), 1);
+
+            let ServerToClientMessage::Render { document } = &messages[0] else {
+                panic!("Expected Render message");
+            };
+
+            let Node::Text(props) = &document.node else {
+                panic!("Expected Text node");
+            };
+
+            assert_eq!(props.text, "Echo: client-A");
         }
     });
 
     let client2 = task::spawn(async move {
-        for _ in 0..3 {
-            send_request_and_receive(&socket_path2, "/counter")
-                .await
-                .expect("Client 2 failed");
+        let mut storage = StateMap::new();
+        storage.insert(
+            "client_id".to_string(),
+            StateValue::String("client-B".to_string()),
+        );
+
+        // Send 3 requests to /echo
+        for i in 0..3 {
+            let messages =
+                send_request_and_receive(socket_path2.to_str().unwrap(), "/echo", storage.clone())
+                    .await
+                    .expect(&format!("Client 2 request {} failed", i));
+
+            assert_eq!(messages.len(), 1);
+
+            let ServerToClientMessage::Render { document } = &messages[0] else {
+                panic!("Expected Render message");
+            };
+
+            let Node::Text(props) = &document.node else {
+                panic!("Expected Text node");
+            };
+
+            assert_eq!(props.text, "Echo: client-B");
         }
     });
 
@@ -327,10 +371,7 @@ async fn test_interleaved_requests() {
     client1.await;
     client2.await;
 
-    // Verify counter was incremented 3 times by client2
-    assert_eq!(get_counter(), 3);
-
     // Clean up
     drop(server_task);
-    let _ = std::fs::remove_file(socket_path);
+    let _ = std::fs::remove_file(&socket_path);
 }
