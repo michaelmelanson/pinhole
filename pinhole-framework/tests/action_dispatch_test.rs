@@ -396,9 +396,17 @@ async fn setup_test_server() -> (UnixListener, String) {
 }
 
 async fn connect_client(socket_path: &str) -> UnixStream {
-    UnixStream::connect(socket_path)
-        .await
-        .expect("Failed to connect")
+    // Retry connection with backoff to handle server startup race
+    for i in 0..10 {
+        if let Ok(stream) = UnixStream::connect(socket_path).await {
+            return stream;
+        }
+        tokio::task::yield_now().await;
+        if i > 5 {
+            tokio::time::sleep(Duration::from_micros(100)).await;
+        }
+    }
+    panic!("Failed to connect to server")
 }
 
 async fn send_action(
@@ -444,7 +452,6 @@ async fn test_action_with_single_argument() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -487,7 +494,6 @@ async fn test_action_with_multiple_arguments() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -534,7 +540,6 @@ async fn test_action_with_keys_capturing_storage() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -593,7 +598,6 @@ async fn test_multiple_actions_on_same_route() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -669,7 +673,6 @@ async fn test_action_with_storage_scopes() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -725,7 +728,6 @@ async fn test_action_with_redirect() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -760,7 +762,6 @@ async fn test_action_with_dynamic_redirect_path() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -798,7 +799,6 @@ async fn test_action_error_handling() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -834,7 +834,6 @@ async fn test_action_conditional_error() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -893,7 +892,6 @@ async fn test_action_with_boolean_storage() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -932,7 +930,6 @@ async fn test_action_with_empty_storage_value() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -968,7 +965,6 @@ async fn test_action_route_not_found() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 
@@ -1004,7 +1000,6 @@ async fn test_action_with_empty_arguments() {
         }
     });
 
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     let mut client = connect_client(&socket_path).await;
 

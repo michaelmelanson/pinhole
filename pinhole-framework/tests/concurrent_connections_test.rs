@@ -92,7 +92,21 @@ async fn send_request_and_receive(
     path: &str,
     storage: StateMap,
 ) -> pinhole::Result<Vec<ServerToClientMessage>> {
-    let mut stream = UnixStream::connect(socket_path).await?;
+    // Retry connection with backoff to handle server startup race
+    let mut stream = None;
+    for i in 0..10 {
+        if let Ok(s) = UnixStream::connect(socket_path).await {
+            stream = Some(s);
+            break;
+        }
+        tokio::task::yield_now().await;
+        if i > 5 {
+            tokio::time::sleep(Duration::from_micros(100)).await;
+        }
+    }
+    let mut stream = stream.ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "Failed to connect")
+    })?;
 
     let request = ClientToServerMessage::Load {
         path: path.to_string(),
@@ -149,8 +163,6 @@ async fn test_multiple_concurrent_connections() {
         }
     });
 
-    // Give server time to start
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Spawn multiple concurrent clients
     let num_clients = 5;
@@ -209,8 +221,6 @@ async fn test_concurrent_requests_to_shared_state() {
         }
     });
 
-    // Give server time to start
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Spawn multiple concurrent clients, each with their own client_id
     let num_requests = 10;
@@ -290,8 +300,6 @@ async fn test_interleaved_requests() {
         }
     });
 
-    // Give server time to start
-    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Create two clients that will send multiple requests
     let socket_path1 = socket_path.clone();
