@@ -31,7 +31,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 
 ### Race Conditions & Concurrency
 - [x] Remove `block_on` calls from UI thread (`pinhole-client/src/main.rs`)
-- [ ] Refactor to fully async message passing
+- [ ] Refactor to fully async message passing (create NetworkLayer abstraction, bounded channels, async storage, connection state tracking with UI feedback)
 - [ ] Add bounded channels with backpressure handling
 - [ ] Add synchronization for concurrent storage access
 - [ ] Fix storage directory creation race condition
@@ -39,6 +39,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 ## High Priority
 
 ### Protocol Improvements
+- [ ] Add request IDs for request/response correlation (enables per-action status tracking, latency measurement, timeouts)
 - [ ] Add protocol versioning mechanism
 - [ ] Add framing recovery for corrupted messages
 - [ ] Add message type validation
