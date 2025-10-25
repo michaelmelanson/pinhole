@@ -4,7 +4,7 @@ The web is great, but it was designed around showing hyperlinked documents. What
 
 ## Status
 
-Set your expectations very low, and then move them lower. This is just a proof of concept.
+This is a proof of concept exploring what an application-first web platform might look like.
 
 ## Usage
 
@@ -69,11 +69,13 @@ The goal is to explore what would happen if we took the best ideas out of the We
 
 ### Protocol
 
-Pinhole maintains a persistent TCP connection to allow for bidirectional messaging. It does not have a request-response cycle: instead, either the client or the server can message each other at any time. The server can, for example, send multiple view updates as loading progresses or in response to server-side events.
+Pinhole maintains a persistent TLS-encrypted connection to allow for bidirectional messaging. It does not have a request-response cycle: instead, either the client or the server can message each other at any time. The server can, for example, send multiple view updates as loading progresses or in response to server-side events.
 
 The protocol is designed so that all state is maintained client-side so that this connection can be terminated and reconnected at any time with minimal user impact, and so that the server is compatible with load balancers without needing sticky sessions.
 
 The messages are transported by length-prefixed [CBOR (Concise Binary Object Representation)](https://tools.ietf.org/html/rfc7049) datagrams. This was chosen because it has flexible, JSON-like semantics but it's compact and fast to generate parse.
+
+The protocol uses capability-based versioning to allow clients and servers to negotiate supported features and evolve gracefully over time.
 
 #### Client-to-server messages
 
@@ -105,11 +107,9 @@ The client keeps the following state locally about its connection:
 
 The storage system is modelled after the Cookie system in HTTP where keys are written by the server, stored on the client, and sent back to the server in requests. But it's significantly improved to fix some of the problems with cookies, and to also fill in the use cases for persistent cookies, session cookies, local storage, and form state.
 
-It's currently only partly done, but when completed:
-
-* Data can be stored in one of three scopes: persistent (saved across app restarts), session (cleared after app restart), or local (cleared on page navigation). Only session storage is currently implemented.
+* Data can be stored in one of three scopes: persistent (saved across app restarts using atomic writes for crash safety), session (cleared after app restart), or local (cleared on page navigation).
 * Form elements persist their values in storage at the 'local' scope.
-* Stored data is sent to the server in **`Action`** messages. Actions can choose exactly which a set of they want sent, to avoid the problems HTTP has with cookie bloat.
+* Stored data is sent to the server in **`Action`** messages. Actions can choose exactly which set they want sent, to avoid the problems HTTP has with cookie bloat.
 
 ### View layer
 
@@ -118,9 +118,7 @@ Pinhole's client uses [Iced](https://github.com/hecrj/iced) for rendering its vi
 ## Roadmap and future plans
 
 ### Roadmap
-* Add Transport level security (TLS) to get HTTPS-like encryption and security.
 * Add more node types -- media, grouping, links (then again, we have buttons so maybe HTML-like links aren't necessary?).
-* Add a style system.
 * Add UI chrome -- a navigation bar? status bar?
 
 ### Ideas and open questions
