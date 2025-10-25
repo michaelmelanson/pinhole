@@ -10,6 +10,4 @@
 
 ## Committing Work
 
-**DO NOT automatically commit work.**
-
-Wait for explicit user instruction to commit changes. Do not commit after completing tasks or implementing features unless explicitly asked.
+**DO NOT automatically commit work.** When you are ready to commit, stop and ask for a human to review your changes. Do not commit after completing tasks or implementing features unless explicitly asked.

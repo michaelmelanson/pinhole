@@ -27,7 +27,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Add route matching tests
 - [x] Add stylesheet application tests (ComputedStyle system with 10 tests)
 - [x] Add storage corruption recovery tests (18 tests in pinhole-client)
-- [ ] Target 70%+ code coverage
+- [x] Target 70%+ code coverage (achieved 87.73% overall coverage with 113 tests)
 
 ### Race Conditions & Concurrency
 - [x] Remove `block_on` calls from UI thread (`pinhole-client/src/main.rs`)
