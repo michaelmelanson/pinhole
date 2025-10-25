@@ -50,7 +50,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 
 ### Storage Layer
 - [x] Implement atomic writes for persistent storage (temp file + rename pattern)
-- [ ] Fix origin sanitisation to prevent collisions
+- [x] Fix origin sanitisation to prevent collisions (hash suffix added)
 - [ ] Implement storage locking for multi-client scenarios
 - [ ] Add storage encryption at rest
 - [ ] Add storage backup and restore functionality

@@ -41,6 +41,7 @@ futures = "0.3"
 directories = "5.0"
 rustc-hash = "2.1"
 maplit = "*"
+sha2 = "0.10"
 
 # Dev dependencies
 tempfile = "3.8"

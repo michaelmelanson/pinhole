@@ -136,6 +136,62 @@ fn test_origin_sanitisation() {
     }
 }
 
+/// Test that origin sanitisation prevents collisions
+#[test]
+fn test_origin_collision_prevention() -> Result<()> {
+    use pinhole_client::StorageManager;
+    use std::collections::HashSet;
+
+    let temp_dir = TempDir::new()?;
+
+    // Origins that would collide without hash suffix
+    let origins = vec![
+        "test@example.com",
+        "test:example.com",
+        "test/example.com",
+        "test\\example.com",
+        "user@host:8080",
+        "user:host:8080",
+    ];
+
+    // Create storage for each origin and collect the file paths
+    let mut file_paths = HashSet::new();
+    let origins_count = origins.len();
+
+    for origin in &origins {
+        let mut manager =
+            StorageManager::new_with_dir(origin.to_string(), temp_dir.path().to_path_buf())?;
+
+        // Store a value to create the file
+        manager.store(
+            StorageScope::Persistent,
+            "test_key".to_string(),
+            StateValue::String(format!("value_for_{}", origin)),
+        )?;
+
+        // Get the actual file path by listing directory
+        let files: Vec<_> = std::fs::read_dir(temp_dir.path())?
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+
+        // Should have exactly one file per origin processed so far
+        file_paths.extend(files);
+    }
+
+    // All origins should have produced unique files (no collisions)
+    assert_eq!(
+        file_paths.len(),
+        origins_count,
+        "Expected {} unique files, got {}. Files: {:?}",
+        origins_count,
+        file_paths.len(),
+        file_paths
+    );
+
+    Ok(())
+}
+
 /// Test that missing storage directory is created
 #[test]
 fn test_missing_directory_creation() -> Result<()> {

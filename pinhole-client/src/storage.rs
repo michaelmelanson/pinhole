@@ -2,6 +2,7 @@ use directories::ProjectDirs;
 use kv_log_macro as log;
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use serde_json;
+use sha2::{Digest, Sha256};
 use std::{collections::HashMap, fs, path::PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -52,7 +53,8 @@ impl StorageManager {
     }
 
     fn sanitize_origin(&self, origin: &str) -> String {
-        origin
+        // Sanitise to alphanumeric + dots + hyphens
+        let sanitised: String = origin
             .chars()
             .map(|c| {
                 if c.is_alphanumeric() || c == '.' || c == '-' {
@@ -61,7 +63,24 @@ impl StorageManager {
                     '_'
                 }
             })
-            .collect()
+            .collect();
+
+        // Add cryptographic hash suffix to prevent collisions between different origins
+        // that sanitise to the same string (e.g., "test@example.com" and "test:example.com")
+        // Full SHA-256 (256 bits) is used because origins come from untrusted network sources
+        // and we need collision resistance against intentional attacks
+        let mut hasher = Sha256::new();
+        hasher.update(origin.as_bytes());
+        let hash = hasher.finalize();
+
+        // Use full 32-byte SHA-256 hash (64 hex characters)
+        // This provides cryptographic collision resistance
+        let hash_hex = hash
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+
+        format!("{}-{}", sanitised, hash_hex)
     }
 
     fn load_persistent_storage(storage_dir: &PathBuf, origin: &str) -> Result<StateMap> {
