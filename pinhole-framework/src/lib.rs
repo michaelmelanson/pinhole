@@ -220,7 +220,7 @@ pub async fn handle_request(
 }
 
 /// Generic connection handler that works with any async stream (processes multiple requests)
-#[tracing::instrument(skip_all, fields(messages_processed = 0))]
+#[tracing::instrument(skip_all)]
 pub async fn handle_connection(
     application: impl Application,
     stream: &mut impl MessageStream,
@@ -253,7 +253,6 @@ pub async fn handle_connection(
         };
 
         message_count += 1;
-        tracing::Span::current().record("messages_processed", message_count);
 
         // Handle this request and update capabilities if renegotiated
         match handle_request(application, &request, stream, &capabilities).await? {
