@@ -117,7 +117,12 @@ impl StorageManager {
         }
 
         let contents = serde_json::to_string_pretty(&json_map)?;
-        fs::write(file_path, contents)?;
+
+        // Atomic write: write to temp file, then rename
+        // This prevents corruption if the process crashes mid-write
+        let temp_path = file_path.with_extension("tmp");
+        fs::write(&temp_path, contents)?;
+        fs::rename(&temp_path, &file_path)?;
 
         log::debug!(
             "Saved {} persistent storage items for origin {}",

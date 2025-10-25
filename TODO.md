@@ -49,8 +49,8 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [ ] Add connection timeout configuration
 
 ### Storage Layer
-- [ ] Implement atomic writes for persistent storage (temp file + rename pattern)
-- [ ] Fix origin sanitization to prevent collisions
+- [x] Implement atomic writes for persistent storage (temp file + rename pattern)
+- [ ] Fix origin sanitisation to prevent collisions
 - [ ] Implement storage locking for multi-client scenarios
 - [ ] Add storage encryption at rest
 - [ ] Add storage backup and restore functionality
