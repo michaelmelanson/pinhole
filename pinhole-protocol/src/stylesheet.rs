@@ -1,5 +1,6 @@
 mod alignment;
 mod colour;
+mod computed_style;
 mod direction;
 mod font_weight;
 mod length;
@@ -9,8 +10,9 @@ mod stylesheet_class;
 use serde::{Deserialize, Serialize};
 
 pub use self::{
-    alignment::Alignment, colour::Colour, direction::Direction, font_weight::FontWeight,
-    length::Length, style_rule::StyleRule, stylesheet_class::StylesheetClass,
+    alignment::Alignment, colour::Colour, computed_style::ComputedStyle, direction::Direction,
+    font_weight::FontWeight, length::Length, style_rule::StyleRule,
+    stylesheet_class::StylesheetClass,
 };
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
