@@ -247,9 +247,9 @@ async fn session_loop(
             }
         }
 
-        // Connection lost, clear session storage before attempting to reconnect
+        // Connection lost, attempting to reconnect
+        // Session storage persists across reconnects
         tracing::info!("Reconnecting...");
-        storage_manager.clear_session_storage();
     }
 
     Ok(())

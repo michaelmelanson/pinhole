@@ -237,11 +237,6 @@ impl StorageManager {
         self.local_storage.clear();
     }
 
-    pub fn clear_session_storage(&mut self) {
-        tracing::debug!("Clearing session storage");
-        self.session_storage.clear();
-    }
-
     #[allow(dead_code)]
     pub fn clear_all_storage(&mut self) -> Result<()> {
         self.persistent_storage.clear();
