@@ -18,10 +18,16 @@ pub struct StorageManager {
 impl StorageManager {
     pub fn new(origin: String) -> Result<Self> {
         let storage_dir = Self::get_storage_dir()?;
+        Self::new_with_dir(origin, storage_dir)
+    }
+
+    /// Create a new StorageManager with a custom storage directory
+    ///
+    /// This is primarily intended for testing, allowing tests to specify
+    /// a temporary directory rather than using the system data directory.
+    pub fn new_with_dir(origin: String, storage_dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&storage_dir)?;
-
         let persistent_storage = Self::load_persistent_storage(&storage_dir, &origin)?;
-
         Ok(StorageManager {
             persistent_storage,
             session_storage: HashMap::new(),
