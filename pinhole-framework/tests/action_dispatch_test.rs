@@ -3,7 +3,7 @@ mod common;
 
 use async_trait::async_trait;
 use common::{connect_test_client, receive_message, send_action, start_test_server};
-use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
+use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
 use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use std::collections::HashMap;
@@ -35,7 +35,12 @@ impl Route for ArgumentsRoute {
         "/arguments"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "echo_args" => {
                 // Store each argument back to verify they were received
@@ -54,7 +59,7 @@ impl Route for ArgumentsRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Arguments test".to_string(),
@@ -74,7 +79,12 @@ impl Route for KeysRoute {
         "/keys"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "submit" => {
                 // Echo back the captured fields to verify they were received
@@ -95,7 +105,7 @@ impl Route for KeysRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Keys test".to_string(),
@@ -115,7 +125,12 @@ impl Route for MultiActionRoute {
         "/multi"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "increment" => {
                 let count = context
@@ -169,7 +184,7 @@ impl Route for MultiActionRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Multi-action test".to_string(),
@@ -189,7 +204,12 @@ impl Route for StorageRoute {
         "/storage"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "store_session" => {
                 context
@@ -221,7 +241,7 @@ impl Route for StorageRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Storage test".to_string(),
@@ -241,7 +261,12 @@ impl Route for RedirectRoute {
         "/redirect"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "go_home" => {
                 context.redirect("/").await?;
@@ -256,7 +281,7 @@ impl Route for RedirectRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Redirect test".to_string(),
@@ -276,7 +301,12 @@ impl Route for ErrorRoute {
         "/error"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "trigger_error" => {
                 return Err(Box::new(std::io::Error::new(
@@ -303,7 +333,7 @@ impl Route for ErrorRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Error test".to_string(),
@@ -323,7 +353,12 @@ impl Route for ComplexDataRoute {
         "/complex"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "store_boolean" => {
                 if let Some(value_str) = action.args.get("value") {
@@ -361,7 +396,7 @@ impl Route for ComplexDataRoute {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Complex data test".to_string(),

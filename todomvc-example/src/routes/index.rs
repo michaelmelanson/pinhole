@@ -1,6 +1,6 @@
 use pinhole::{
-    Action, ButtonProps, ContainerProps, Context, Direction, Document, InputProps, Node, Render,
-    Result, Route, StateMap, StateValue, StorageScope, TextProps,
+    Action, ButtonProps, ContainerProps, Context, Direction, Document, InputProps, Node, Params,
+    Render, Result, Route, StateMap, StateValue, StorageScope, TextProps,
 };
 
 use crate::stylesheet::stylesheet;
@@ -15,7 +15,12 @@ impl Route for IndexRoute {
         "/"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> Result<()> {
         match action {
             Action { name, .. } if name == SUBMIT_ACTION => {
                 tracing::info!("Submit action received");
@@ -37,7 +42,7 @@ impl Route for IndexRoute {
         Ok(())
     }
 
-    async fn render(&self, storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, storage: &StateMap) -> Render {
         // Auto-login if email is already saved
         if storage
             .get("saved_email")

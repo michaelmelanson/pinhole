@@ -3,6 +3,7 @@
 mod application;
 mod context;
 mod route;
+mod router;
 
 use std::future::Future;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
@@ -31,6 +32,7 @@ pub use pinhole_protocol::{
     tls_config::ServerTlsConfig as TlsConfig,
 };
 pub use route::{Render, Route};
+pub use router::{Params, RoutePattern};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -136,13 +138,13 @@ pub async fn handle_request(
                 action = %action.name,
                 "Received action"
             );
-            if let Some(route) = application.route(path) {
+            if let Some((route, params)) = application.route(path) {
                 let mut context = Context {
                     storage: storage.clone(),
                     stream,
                     capabilities: capabilities.clone(),
                 };
-                route.action(action, &mut context).await
+                route.action(action, &params, &mut context).await
             } else {
                 tracing::warn!(path = %path, "Route not found");
                 send_message_to_client(
@@ -159,8 +161,8 @@ pub async fn handle_request(
 
         ClientToServerMessage::Load { path, storage } => {
             tracing::debug!(path = %path, "Received load");
-            if let Some(route) = application.route(path) {
-                match route.render(storage).await {
+            if let Some((route, params)) = application.route(path) {
+                match route.render(&params, storage).await {
                     Render::Document(document) => {
                         send_message_to_client(stream, ServerToClientMessage::Render { document })
                             .await

@@ -26,11 +26,13 @@ Architectural improvements identified in October 2025 assessment.
   - Support 401, 403, 429, etc. (not just 400/404/500)
   - Location: `pinhole-protocol/src/messages.rs`, `pinhole-client/src/error.rs`
 
-- [ ] **Route Matching**
-  - Implement path parameter extraction (`/user/{id}`)
-  - Add query string parsing
-  - Use trie-based router for O(log n) lookups
-  - Location: `pinhole-framework/src/application.rs`
+- [x] **Route Matching**
+  - Implemented path parameter extraction with `:param` syntax (`/resources/:id/subpage`)
+  - RoutePattern matches paths and extracts parameters into Params HashMap
+  - Updated Route trait to accept Params in action() and render() methods
+  - Updated Application::route() to return (Route, Params) tuple
+  - Comprehensive test coverage (6 router tests)
+  - Location: `pinhole-framework/src/router.rs`, `application.rs`, `route.rs`
 
 - [x] **Storage Type System**
   - Added Number, Array, Object types with JSON-compatible semantics
@@ -42,7 +44,6 @@ Architectural improvements identified in October 2025 assessment.
 - [ ] **State Synchronisation**
   - Add state version numbers for optimistic concurrency
   - Implement conflict detection
-  - Persist session storage with explicit expiry (don't clear on reconnect)
   - Location: `pinhole-client/src/network.rs`
 
 - [ ] **Documentation**

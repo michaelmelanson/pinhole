@@ -1,8 +1,8 @@
 use maplit::hashmap;
 
 use pinhole::{
-    Action, ButtonProps, CheckboxProps, ContainerProps, Context, Direction, Document, Node, Render,
-    Result, Route, StateMap, StorageScope, TextProps,
+    Action, ButtonProps, CheckboxProps, ContainerProps, Context, Direction, Document, Node, Params,
+    Render, Result, Route, StateMap, StorageScope, TextProps,
 };
 
 use crate::{model::Todo, stylesheet::stylesheet};
@@ -19,7 +19,12 @@ impl Route for ListRoute {
         "/todos"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> Result<()> {
         match action {
             Action { name, args, .. } if name == TASK_CHECKED => {
                 if let Some(id) = args.get(TASK_ID_KEY) {
@@ -50,7 +55,7 @@ impl Route for ListRoute {
         Ok(())
     }
 
-    async fn render(&self, storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, storage: &StateMap) -> Render {
         // Check authentication - must have saved email
         if storage.get("saved_email").is_none() {
             return Render::RedirectTo("/".to_string());

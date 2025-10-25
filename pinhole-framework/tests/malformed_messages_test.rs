@@ -7,7 +7,7 @@ use tokio::net::UnixStream;
 // Use the test app from client_server_test
 mod test_app {
     use async_trait::async_trait;
-    use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
+    use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
     use pinhole_protocol::storage::StateMap;
 
     #[derive(Clone, Copy)]
@@ -30,12 +30,13 @@ mod test_app {
         async fn action<'a>(
             &self,
             _action: &Action,
+            _params: &Params,
             _context: &mut Context<'a>,
         ) -> pinhole::Result<()> {
             Ok(())
         }
 
-        async fn render(&self, _storage: &StateMap) -> Render {
+        async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
             Render::Document(Document {
                 node: Node::Text(TextProps {
                     text: "Hello".to_string(),

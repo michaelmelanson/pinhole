@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use common::{
     connect_test_client, receive_message, send_load, send_simple_action, start_test_server,
 };
-use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
+use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
 use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
 use pinhole_protocol::storage::StateMap;
 
@@ -49,12 +49,13 @@ impl Route for RootRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "root".to_string(),
@@ -77,12 +78,13 @@ impl Route for UserRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "user".to_string(),
@@ -105,12 +107,13 @@ impl Route for UsersRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "users".to_string(),
@@ -133,12 +136,13 @@ impl Route for AboutRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "about".to_string(),
@@ -161,12 +165,13 @@ impl Route for ContactRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "contact".to_string(),
@@ -189,12 +194,13 @@ impl Route for ApiV1Route {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "api-v1".to_string(),

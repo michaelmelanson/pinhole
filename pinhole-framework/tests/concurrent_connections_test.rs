@@ -7,7 +7,7 @@ mod common;
 
 use async_trait::async_trait;
 use common::{assert_render, start_test_server};
-use pinhole::{Action, Application, Context, Document, Node, Render, Route, TextProps};
+use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
 use pinhole_protocol::messages::{ClientToServerMessage, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
 use pinhole_protocol::storage::{StateMap, StateValue};
@@ -35,12 +35,13 @@ impl Route for HelloRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Hello".to_string(),
@@ -62,12 +63,13 @@ impl Route for EchoRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, storage: &StateMap) -> Render {
         // Echo back the "client_id" value from storage
         let text = if let Some(StateValue::String(id)) = storage.get("client_id") {
             format!("Echo: {}", id)
@@ -151,13 +153,9 @@ async fn test_multiple_concurrent_connections() {
     for i in 0..num_clients {
         let socket_path_clone = socket_path.clone();
         let task = tokio::spawn(async move {
-            send_request_and_receive(
-                &socket_path_clone,
-                "/hello",
-                StateMap::new(),
-            )
-            .await
-            .expect(&format!("Client {} failed", i))
+            send_request_and_receive(&socket_path_clone, "/hello", StateMap::new())
+                .await
+                .expect(&format!("Client {} failed", i))
         });
         client_tasks.push(task);
     }
@@ -194,10 +192,9 @@ async fn test_concurrent_requests_to_shared_state() {
                 StateValue::String(format!("client-{}", i)),
             );
 
-            let messages =
-                send_request_and_receive(&socket_path_clone, "/echo", storage)
-                    .await
-                    .expect(&format!("Client {} failed", i));
+            let messages = send_request_and_receive(&socket_path_clone, "/echo", storage)
+                .await
+                .expect(&format!("Client {} failed", i));
 
             (i, messages)
         });
@@ -252,10 +249,9 @@ async fn test_interleaved_requests() {
 
         // Send 3 requests to /echo
         for i in 0..3 {
-            let messages =
-                send_request_and_receive(&socket_path1, "/echo", storage.clone())
-                    .await
-                    .expect(&format!("Client 1 request {} failed", i));
+            let messages = send_request_and_receive(&socket_path1, "/echo", storage.clone())
+                .await
+                .expect(&format!("Client 1 request {} failed", i));
 
             assert_eq!(messages.len(), 1);
 
@@ -280,10 +276,9 @@ async fn test_interleaved_requests() {
 
         // Send 3 requests to /echo
         for i in 0..3 {
-            let messages =
-                send_request_and_receive(&socket_path2, "/echo", storage.clone())
-                    .await
-                    .expect(&format!("Client 2 request {} failed", i));
+            let messages = send_request_and_receive(&socket_path2, "/echo", storage.clone())
+                .await
+                .expect(&format!("Client 2 request {} failed", i));
 
             assert_eq!(messages.len(), 1);
 

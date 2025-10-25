@@ -7,8 +7,8 @@ use common::{
     receive_all_messages, send_action, send_load, start_test_server,
 };
 use pinhole::{
-    Action, Application, ButtonProps, ContainerProps, Context, Document, Node, Render, Route,
-    TextProps,
+    Action, Application, ButtonProps, ContainerProps, Context, Document, Node, Params, Render,
+    Route, TextProps,
 };
 use pinhole_protocol::messages::ErrorCode;
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
@@ -42,12 +42,13 @@ impl Route for HelloRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Text(TextProps {
                 text: "Hello from real server!".to_string(),
@@ -67,7 +68,12 @@ impl Route for CounterRoute {
         "/counter"
     }
 
-    async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> pinhole::Result<()> {
+    async fn action<'a>(
+        &self,
+        action: &Action,
+        _params: &Params,
+        context: &mut Context<'a>,
+    ) -> pinhole::Result<()> {
         if action.name == "increment" {
             let count = context
                 .storage
@@ -91,7 +97,7 @@ impl Route for CounterRoute {
         Ok(())
     }
 
-    async fn render(&self, storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, storage: &StateMap) -> Render {
         let count = storage
             .get("count")
             .and_then(|v| match v {
@@ -122,12 +128,13 @@ impl Route for RedirectRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::RedirectTo("/hello".to_string())
     }
 }
@@ -144,12 +151,13 @@ impl Route for ErrorRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Err("Intentional error from action".into())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         // Return a document that will work, but the route is meant to test error handling
         // We'll test render errors by making the action fail instead
         Render::Document(Document {
@@ -174,12 +182,13 @@ impl Route for ButtonRoute {
     async fn action<'a>(
         &self,
         _action: &Action,
+        _params: &Params,
         _context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
         Ok(())
     }
 
-    async fn render(&self, _storage: &StateMap) -> Render {
+    async fn render(&self, _params: &Params, _storage: &StateMap) -> Render {
         Render::Document(Document {
             node: Node::Container(ContainerProps {
                 direction: Direction::Vertical,
