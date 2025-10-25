@@ -11,11 +11,12 @@ Architectural improvements identified in October 2025 assessment.
   - Context.assert_capability() for runtime enforcement
   - Location: `pinhole-protocol/src/capabilities.rs`, `messages.rs`
 
-- [ ] **Logging and Observability**
-  - Adopt `tracing` crate for structured logging
-  - Add request/response middleware with correlation IDs
-  - Add metrics: connection count, request latency, error rates
-  - Location: `pinhole-framework/src/lib.rs`
+- [x] **Logging and Observability**
+  - Migrated from `log` to `tracing` throughout codebase
+  - Added structured logging with key-value fields
+  - Added tracing spans for connections and message processing
+  - Tracks messages_processed per connection
+  - Location: All modules, primary in `pinhole-framework/src/lib.rs`
 
 - [ ] **Request Validation**
   - Implement typed actions with serde validation

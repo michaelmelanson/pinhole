@@ -22,9 +22,3 @@ impl Action {
         }
     }
 }
-
-impl log::kv::ToValue for Action {
-    fn to_value(&self) -> log::kv::Value<'_> {
-        log::kv::Value::from_debug(self)
-    }
-}

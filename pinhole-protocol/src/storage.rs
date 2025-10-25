@@ -37,12 +37,6 @@ impl StateValue {
     }
 }
 
-impl log::kv::ToValue for StateValue {
-    fn to_value(&self) -> log::kv::Value<'_> {
-        log::kv::Value::from_debug(self)
-    }
-}
-
 impl From<bool> for StateValue {
     fn from(value: bool) -> Self {
         StateValue::Boolean(value)

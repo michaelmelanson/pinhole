@@ -25,16 +25,16 @@ impl Route for ListRoute {
                 if let Some(id) = args.get(TASK_ID_KEY) {
                     if let Some(value) = context.storage.get(id) {
                         if value.boolean() {
-                            log::info!("Task {:?} checked", id);
+                            tracing::debug!(id = %id, "Task checked");
                         } else {
-                            log::info!("Task {:?} unchecked", id);
+                            tracing::debug!(id = %id, "Task unchecked");
                         }
                     }
                 }
             }
 
             Action { name, .. } if name == LOGOUT_ACTION => {
-                log::info!("Logging out");
+                tracing::info!("User logged out");
 
                 // Clear saved email (logout)
                 context
@@ -44,7 +44,7 @@ impl Route for ListRoute {
                 context.redirect("/").await?;
             }
 
-            _ => log::error!("Unknown action: {:?}", action),
+            _ => tracing::warn!(action = %action.name, "Unknown action"),
         }
 
         Ok(())

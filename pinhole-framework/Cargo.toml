@@ -9,9 +9,8 @@ edition = "2021"
 [dependencies]
 pinhole-protocol.workspace = true
 tokio.workspace = true
-log.workspace = true
-kv-log-macro.workspace = true
-femme.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
 async-trait.workspace = true
 tokio-native-tls.workspace = true
 

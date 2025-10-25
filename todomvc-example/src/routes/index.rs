@@ -18,7 +18,7 @@ impl Route for IndexRoute {
     async fn action<'a>(&self, action: &Action, context: &mut Context<'a>) -> Result<()> {
         match action {
             Action { name, .. } if name == SUBMIT_ACTION => {
-                log::info!("Submit with state: {:?}", context.storage);
+                tracing::info!("Submit action received");
 
                 // Store email persistently for authentication
                 let email_value = context.storage.get("email").map(|e| e.string().to_string());
@@ -31,7 +31,7 @@ impl Route for IndexRoute {
                 context.redirect("/todos").await?;
             }
 
-            _ => log::error!("Unknown action: {:?}", action),
+            _ => tracing::warn!(action = %action.name, "Unknown action"),
         }
 
         Ok(())

@@ -4,8 +4,6 @@ mod application;
 mod context;
 mod route;
 
-use kv_log_macro as log;
-
 use std::future::Future;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_native_tls::TlsStream;
@@ -53,7 +51,13 @@ pub async fn run(
     address: impl ToSocketAddrs,
     tls_config: ServerTlsConfig,
 ) -> Result<()> {
-    femme::start();
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     accept_loop(application, address, tls_config).await
 }
@@ -66,20 +70,20 @@ async fn accept_loop(
     let listener = TcpListener::bind(addr).await?;
     let acceptor = tls_config.build_acceptor()?;
 
-    log::info!("Server listening with TLS enabled");
+    tracing::info!("Server listening with TLS enabled");
 
     loop {
-        let (tcp_stream, _addr) = listener.accept().await?;
+        let (tcp_stream, peer_addr) = listener.accept().await?;
         let acceptor = acceptor.clone();
 
         tokio::spawn(async move {
             let tls_stream = acceptor.accept(tcp_stream).await.map_err(|e| {
-                log::error!("TLS handshake failed: {}", e);
+                tracing::error!(error = %e, "TLS handshake failed");
                 e
             });
 
             if let Ok(stream) = tls_stream {
-                spawn_and_log_error(connection_loop(application, stream));
+                spawn_and_log_error(connection_loop(application, stream, peer_addr));
             }
         });
     }
@@ -98,14 +102,18 @@ pub async fn handle_request(
             capabilities: client_caps,
         } => {
             // Capability negotiation can happen at any time
-            log::info!("Received ClientHello, negotiating capabilities");
+            tracing::debug!(
+                client_capabilities = client_caps.len(),
+                "Received ClientHello"
+            );
 
             let server_capabilities = supported_capabilities();
             let negotiated_capabilities = server_capabilities.intersect(client_caps);
 
-            log::info!("Capability negotiation successful", {
-                capabilities: negotiated_capabilities.len()
-            });
+            tracing::info!(
+                capabilities = negotiated_capabilities.len(),
+                "Capability negotiation successful"
+            );
             send_message_to_client(
                 stream,
                 ServerToClientMessage::ServerHello {
@@ -123,7 +131,11 @@ pub async fn handle_request(
             action,
             storage,
         } => {
-            log::info!("Received action", {path: path, action: action});
+            tracing::debug!(
+                path = %path,
+                action = %action.name,
+                "Received action"
+            );
             if let Some(route) = application.route(path) {
                 let mut context = Context {
                     storage: storage.clone(),
@@ -132,7 +144,7 @@ pub async fn handle_request(
                 };
                 route.action(action, &mut context).await
             } else {
-                log::error!("No route found", { path: path });
+                tracing::warn!(path = %path, "Route not found");
                 send_message_to_client(
                     stream,
                     ServerToClientMessage::Error {
@@ -146,6 +158,7 @@ pub async fn handle_request(
         }
 
         ClientToServerMessage::Load { path, storage } => {
+            tracing::debug!(path = %path, "Received load");
             if let Some(route) = application.route(path) {
                 match route.render(storage).await {
                     Render::Document(document) => {
@@ -153,17 +166,24 @@ pub async fn handle_request(
                             .await
                             .map_err(|e| e.into())
                     }
-                    Render::RedirectTo(redirect_path) => send_message_to_client(
-                        stream,
-                        ServerToClientMessage::RedirectTo {
-                            path: redirect_path,
-                        },
-                    )
-                    .await
-                    .map_err(|e| e.into()),
+                    Render::RedirectTo(redirect_path) => {
+                        tracing::debug!(
+                            from = %path,
+                            to = %redirect_path,
+                            "Redirecting"
+                        );
+                        send_message_to_client(
+                            stream,
+                            ServerToClientMessage::RedirectTo {
+                                path: redirect_path,
+                            },
+                        )
+                        .await
+                        .map_err(|e| e.into())
+                    }
                 }
             } else {
-                log::error!("No route found", { path: path });
+                tracing::warn!(path = %path, "Route not found");
                 send_message_to_client(
                     stream,
                     ServerToClientMessage::Error {
@@ -179,7 +199,7 @@ pub async fn handle_request(
 
     // Send error message to client if request handling failed
     if let Err(e) = result {
-        log::warn!("Request handling error: {}", e);
+        tracing::warn!(error = %e, "Request handling error");
         let error_result = send_message_to_client(
             stream,
             ServerToClientMessage::Error {
@@ -191,7 +211,7 @@ pub async fn handle_request(
 
         // If we can't send the error message, the connection is broken
         if let Err(send_err) = error_result {
-            log::error!("Failed to send error message: {}", send_err);
+            tracing::error!(error = %send_err, "Failed to send error message");
             return Err(send_err.into());
         }
     }
@@ -200,26 +220,40 @@ pub async fn handle_request(
 }
 
 /// Generic connection handler that works with any async stream (processes multiple requests)
+#[tracing::instrument(skip_all, fields(messages_processed = 0))]
 pub async fn handle_connection(
     application: impl Application,
     stream: &mut impl MessageStream,
 ) -> Result<()> {
+    tracing::info!("Connection established");
+
     // Start with empty capabilities - client must negotiate
     let mut capabilities = CapabilitySet::new();
+    let mut message_count = 0u64;
 
     loop {
         // Receive message - network errors are fatal and close connection
         let request = match receive_client_message(stream).await {
             Ok(Some(req)) => req,
             Ok(None) => {
-                log::info!("Client closed connection");
+                tracing::info!(
+                    messages_processed = message_count,
+                    "Client closed connection"
+                );
                 break;
             }
             Err(e) => {
-                log::error!("Fatal network error: {}", e);
+                tracing::error!(
+                    error = %e,
+                    messages_processed = message_count,
+                    "Fatal network error"
+                );
                 return Err(e.into());
             }
         };
+
+        message_count += 1;
+        tracing::Span::current().record("messages_processed", message_count);
 
         // Handle this request and update capabilities if renegotiated
         match handle_request(application, &request, stream, &capabilities).await? {
@@ -234,11 +268,12 @@ pub async fn handle_connection(
 }
 
 /// TLS-specific connection handler wrapper
+#[tracing::instrument(skip_all, fields(peer_addr = %peer_addr))]
 async fn connection_loop(
     application: impl Application,
     mut stream: TlsStream<TcpStream>,
+    peer_addr: std::net::SocketAddr,
 ) -> Result<()> {
-    log::info!("New TLS connection");
     handle_connection(application, &mut stream).await
 }
 
@@ -248,7 +283,7 @@ where
 {
     tokio::spawn(async move {
         if let Err(e) = fut.await {
-            log::error!("Connection error {}", e);
+            tracing::error!(error = %e, "Connection error");
         }
     })
 }

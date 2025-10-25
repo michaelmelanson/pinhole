@@ -5,8 +5,6 @@ mod storage;
 mod stylesheet;
 mod ui_node;
 
-use kv_log_macro as log;
-
 use futures::StreamExt;
 use iced::{widget::Container, Alignment, Length, Subscription, Task};
 
@@ -84,23 +82,23 @@ impl Pinhole {
         match message {
             PinholeMessage::StartNavigation(path) => {
                 if let Err(e) = self.network_session.load(&path) {
-                    log::error!("Failed to load page: {}", e);
+                    tracing::error!(error = %e, "Failed to load page");
                 } else {
                     command = Task::perform(async {}, |_| PinholeMessage::LoadStarted)
                 }
             }
             PinholeMessage::LoadStarted => {
-                log::info!("Load started");
+                tracing::debug!("Load started");
             }
             PinholeMessage::NetworkSessionEvent(event) => match event {
                 NetworkSessionEvent::DocumentUpdated(document) => {
-                    log::info!("Document updated", { document: format!("{:?}", document) });
+                    tracing::debug!("Document updated");
                     self.document_node = document.node.into();
                     self.stylesheet = document.stylesheet.into();
                     self.error_message = None; // Clear any error when new document loads
                 }
                 NetworkSessionEvent::ServerError { code, message } => {
-                    log::error!("Server error {}: {}", code, message);
+                    tracing::error!(code = code, message = %message, "Server error");
                     self.error_message = Some(format!("Error {}: {}", code, message));
                 }
             },
@@ -110,14 +108,14 @@ impl Pinhole {
                 command = Task::perform(
                     async move {
                         if let Err(e) = network_session.action(&action, &state_map) {
-                            log::error!("Failed to send action: {}", e);
+                            tracing::error!(error = %e, "Failed to send action");
                         }
                     },
                     |_| PinholeMessage::LoadStarted,
                 );
             }
             PinholeMessage::FormValueChanged { id, value, action } => {
-                log::debug!("Form value changed", { id: id, value: value, action: action });
+                tracing::trace!(id = %id, "Form value changed");
 
                 // Store in local context for immediate UI updates and local storage
                 self.context.state_map.insert(id, value);
@@ -128,7 +126,7 @@ impl Pinhole {
                     command = Task::perform(
                         async move {
                             if let Err(e) = network_session.action(&action, &state_map) {
-                                log::error!("Failed to send action: {}", e);
+                                tracing::error!(error = %e, "Failed to send action");
                             }
                         },
                         |_| PinholeMessage::LoadStarted,
@@ -166,7 +164,13 @@ impl Pinhole {
 }
 
 fn main() -> iced::Result {
-    env_logger::init();
+    // Initialize tracing subscriber
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     iced::application("Pinhole", Pinhole::update, Pinhole::view)
         .subscription(Pinhole::subscription)

@@ -10,7 +10,6 @@ impl<T: AsyncRead + Unpin + ?Sized> ReadStream for T {}
 pub trait WriteStream: AsyncWrite + Unpin {}
 impl<T: AsyncWrite + Unpin + ?Sized> WriteStream for T {}
 
-use kv_log_macro as log;
 use std::fmt;
 
 /// Maximum message size: 10MB
@@ -69,11 +68,6 @@ pub type Result<T> = std::result::Result<T, NetworkError>;
 /// Validates that a message length is within acceptable bounds
 fn validate_message_size(length: u32) -> Result<()> {
     if length > MAX_MESSAGE_SIZE {
-        log::error!(
-            "Message size {} exceeds maximum {}",
-            length,
-            MAX_MESSAGE_SIZE
-        );
         return Err(NetworkError::MessageTooLarge {
             size: length,
             max: MAX_MESSAGE_SIZE,
@@ -86,7 +80,6 @@ pub async fn send_message_to_server<S: WriteStream + ?Sized>(
     stream: &mut S,
     request: ClientToServerMessage,
 ) -> Result<()> {
-    log::debug!("Sending request: {:?}", request);
     let bytes = serde_cbor::to_vec(&request)?;
 
     let request_length: u32 = bytes.len() as u32;
@@ -100,8 +93,6 @@ pub async fn send_message_to_client<S: WriteStream + ?Sized>(
     stream: &mut S,
     response: ServerToClientMessage,
 ) -> Result<()> {
-    log::debug!("Sending response: {:?}", response);
-
     let bytes = serde_cbor::to_vec(&response)?;
 
     let response_length: u32 = bytes.len() as u32;
@@ -114,13 +105,9 @@ pub async fn send_message_to_client<S: WriteStream + ?Sized>(
 pub async fn receive_server_message<S: ReadStream + ?Sized>(
     stream: &mut S,
 ) -> Result<Option<ServerToClientMessage>> {
-    log::debug!("Waiting for response...");
-
     let mut bytes = [0u8; 4];
     stream.read(&mut bytes).await?;
     let response_length = u32::from_le_bytes(bytes);
-
-    log::trace!("Incoming response", { length: response_length });
 
     if response_length > 0 {
         validate_message_size(response_length)?;
@@ -130,11 +117,8 @@ pub async fn receive_server_message<S: ReadStream + ?Sized>(
         stream.read(&mut bytes).await?;
 
         let response = serde_cbor::from_slice::<ServerToClientMessage>(&bytes)?;
-
-        log::debug!("Received response", { response: response });
         Ok(Some(response))
     } else {
-        log::debug!("Empty response");
         Ok(None)
     }
 }
@@ -142,13 +126,9 @@ pub async fn receive_server_message<S: ReadStream + ?Sized>(
 pub async fn receive_client_message<S: ReadStream + ?Sized>(
     stream: &mut S,
 ) -> Result<Option<ClientToServerMessage>> {
-    log::debug!("Waiting for request...");
-
     let mut bytes = [0u8; 4];
     stream.read(&mut bytes).await?;
     let request_length = u32::from_le_bytes(bytes);
-
-    log::trace!("Incoming request", { length: request_length });
 
     if request_length > 0 {
         validate_message_size(request_length)?;
@@ -158,10 +138,8 @@ pub async fn receive_client_message<S: ReadStream + ?Sized>(
         stream.read(&mut bytes).await?;
 
         let request = serde_cbor::from_slice::<ClientToServerMessage>(&bytes)?;
-        log::debug!("Received request: {:?}", request);
         Ok(Some(request))
     } else {
-        log::debug!("Received empty request");
         Ok(None)
     }
 }

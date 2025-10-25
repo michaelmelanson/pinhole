@@ -7,8 +7,6 @@ use tokio::{
 use tokio_native_tls::TlsStream;
 use tokio_stream::wrappers::BroadcastStream;
 
-use kv_log_macro as log;
-
 use crate::error::NetworkError;
 use crate::storage::StorageManager;
 use pinhole_protocol::{
@@ -28,12 +26,6 @@ type Result<T> = std::result::Result<T, NetworkError>;
 pub enum NetworkSessionCommand {
     Action { action: Action, storage: StateMap },
     Load { path: String },
-}
-
-impl ::log::kv::ToValue for NetworkSessionCommand {
-    fn to_value(&self) -> ::log::kv::Value<'_> {
-        ::log::kv::Value::from_debug(self)
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +66,7 @@ impl NetworkSession {
                 storage: storage.clone(),
             })
             .map_err(|e| {
-                log::error!("Network session thread is dead: {:?}", e);
+                tracing::error!(error = ?e, "Network session thread is dead");
                 NetworkError::ProtocolError("Network session is not running".to_string())
             })
     }
@@ -85,7 +77,7 @@ impl NetworkSession {
         self.command_sender
             .send(NetworkSessionCommand::Load { path })
             .map_err(|e| {
-                log::error!("Network session thread is dead: {:?}", e);
+                tracing::error!(error = ?e, "Network session thread is dead");
                 NetworkError::ProtocolError("Network session is not running".to_string())
             })
     }
@@ -110,10 +102,10 @@ async fn session_loop(
         let connector = tls_config.build_connector()?;
 
         loop {
-            log::debug!("Trying to connect to {}", address);
+            tracing::debug!(address = %address, "Attempting connection");
             match TcpStream::connect(&address).await {
                 Ok(tcp_stream) => {
-                    log::debug!("TCP connection established, starting TLS handshake");
+                    tracing::debug!("TCP connection established, starting TLS handshake");
 
                     // Extract hostname from address (before the colon)
                     let hostname = address
@@ -128,15 +120,15 @@ async fn session_loop(
                             .connect(hostname, tcp_stream)
                             .await
                             .map_err(|err| {
-                                log::error!("TLS handshake failed: {:?}", err);
+                                tracing::error!(error = %err, "TLS handshake failed");
                                 NetworkError::TlsHandshakeFailed(err.to_string())
                             })?;
 
-                    log::info!("TLS connection established");
+                    tracing::info!("TLS connection established");
                     return Ok(tls_stream);
                 }
                 Err(err) => {
-                    log::warn!("Error trying to connect (will retry in 1s): {:?}", err);
+                    tracing::debug!(error = %err, "Connection failed, retrying in 1s");
                     tokio::time::sleep(Duration::from_millis(1000)).await;
                 }
             }
@@ -146,7 +138,7 @@ async fn session_loop(
     'main: loop {
         let mut stream: TlsStream<TcpStream> = connect(&address).await?;
 
-        log::info!("Connected to server");
+        tracing::info!("Connected to server");
 
         // Send ClientHello to negotiate capabilities
         let client_capabilities = supported_capabilities();
@@ -171,13 +163,13 @@ async fn session_loop(
             select! {
               command = command_receiver.recv().fuse() => {
                 if let Some(command) = command {
-                    log::info!("Received command from app", {command: command});
+                    tracing::debug!("Received command from app");
                     match command {
                         NetworkSessionCommand::Action { action, storage } => {
                             if let Some(path) = current_path.clone() {
                                 send_message_to_server(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
                             } else {
-                                log::error!("Attempted to fire action without a path set, ignoring");
+                                tracing::warn!("Attempted to fire action without a path set, ignoring");
                             }
                         },
                         NetworkSessionCommand::Load { path } => {
@@ -195,17 +187,18 @@ async fn session_loop(
 
               message = receive_server_message(&mut stream).fuse() => {
                 if let Some(message) = message? {
-                log::info!("Received message from server", {message: message});
+
                   match message {
                     ServerToClientMessage::ServerHello { capabilities } => {
-                      log::info!("Received ServerHello", {
-                        capabilities: capabilities.len()
-                      });
+                      tracing::debug!(
+                        capabilities = capabilities.len(),
+                        "Capability negotiation complete"
+                      );
                       // Capability negotiation successful, continue normal operation
                     }
                     ServerToClientMessage::Render { document } => {
                       if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)) {
-                        log::error!("UI thread closed, shutting down network session: {:?}", e);
+                        tracing::error!(error = ?e, "UI thread closed, shutting down");
                         break 'main;
                       }
                     },
@@ -218,15 +211,19 @@ async fn session_loop(
                     }
                     ServerToClientMessage::Store { scope, key, value } => {
                       if let Err(e) = storage_manager.store(scope, key, value) {
-                        log::warn!("Failed to store value: {:?}", e);
+                        tracing::warn!(error = ?e, "Failed to store value");
                       }
                     }
                     ServerToClientMessage::Error { code, message } => {
-                      log::error!("Server error {}: {}", code.as_u16(), message);
+                      tracing::error!(
+                        code = code.as_u16(),
+                        message = %message,
+                        "Server error"
+                      );
 
                       // If we get UpgradeRequired, terminate the connection
                       if code == ErrorCode::UpgradeRequired {
-                        log::error!("Incompatible protocol version, terminating");
+                        tracing::error!("Incompatible protocol version, terminating");
                         return Err(NetworkError::ProtocolError(format!(
                           "Incompatible protocol version: {}",
                           message
@@ -237,13 +234,13 @@ async fn session_loop(
                         code: code.as_u16(),
                         message,
                       }) {
-                        log::error!("UI thread closed, shutting down network session: {:?}", e);
+                        tracing::error!(error = ?e, "UI thread closed, shutting down");
                         break 'main;
                       }
                     }
                   }
                 } else {
-                  log::info!("Received null response, terminating connection");
+                  tracing::info!("Connection closed by server");
                   break 'connection;
                 }
               }
@@ -251,6 +248,7 @@ async fn session_loop(
         }
 
         // Connection lost, clear session storage before attempting to reconnect
+        tracing::info!("Reconnecting...");
         storage_manager.clear_session_storage();
     }
 

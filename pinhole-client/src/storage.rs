@@ -1,5 +1,5 @@
 use directories::ProjectDirs;
-use kv_log_macro as log;
+
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
 use serde_json;
 use sha2::{Digest, Sha256};
@@ -110,14 +110,14 @@ impl StorageManager {
                 state_map.insert(key, state_value);
             }
 
-            log::debug!(
-                "Loaded {} persistent storage items for origin {}",
-                state_map.len(),
-                origin
+            tracing::debug!(
+                items = state_map.len(),
+                origin = %origin,
+                "Loaded persistent storage"
             );
             Ok(state_map)
         } else {
-            log::debug!("No persistent storage file found for origin {}", origin);
+            tracing::debug!(origin = %origin, "No persistent storage file found");
             Ok(HashMap::new())
         }
     }
@@ -143,10 +143,10 @@ impl StorageManager {
         fs::write(&temp_path, contents)?;
         fs::rename(&temp_path, &file_path)?;
 
-        log::debug!(
-            "Saved {} persistent storage items for origin {}",
-            json_map.len(),
-            self.origin
+        tracing::debug!(
+            items = json_map.len(),
+            origin = %self.origin,
+            "Saved persistent storage"
         );
         Ok(())
     }
@@ -178,10 +178,10 @@ impl StorageManager {
 
     pub fn navigate_to(&mut self, new_route: String) {
         if self.current_route.as_ref() != Some(&new_route) {
-            log::debug!(
-                "Route changed from {:?} to {}, clearing local storage",
-                self.current_route,
-                new_route
+            tracing::debug!(
+                from = ?self.current_route,
+                to = %new_route,
+                "Route changed, clearing local storage"
             );
             self.local_storage.clear();
             self.current_route = Some(new_route);
@@ -200,12 +200,12 @@ impl StorageManager {
     }
 
     pub fn clear_local_storage(&mut self) {
-        log::debug!("Clearing local storage");
+        tracing::trace!("Clearing local storage");
         self.local_storage.clear();
     }
 
     pub fn clear_session_storage(&mut self) {
-        log::debug!("Clearing session storage");
+        tracing::debug!("Clearing session storage");
         self.session_storage.clear();
     }
 

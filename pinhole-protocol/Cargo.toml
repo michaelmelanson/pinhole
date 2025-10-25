@@ -10,8 +10,6 @@ edition = "2021"
 serde.workspace = true
 tokio.workspace = true
 serde_cbor.workspace = true
-log.workspace = true
-kv-log-macro.workspace = true
 tokio-native-tls.workspace = true
 native-tls.workspace = true
 
