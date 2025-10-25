@@ -25,7 +25,7 @@ This file contains a list of tasks to be completed for the Pinhole project. Be s
 - [x] Add concurrent connection tests
 - [x] Add action dispatch tests
 - [x] Add route matching tests
-- [ ] Add stylesheet application tests
+- [x] Add stylesheet application tests (ComputedStyle system with 10 tests)
 - [ ] Add UI rendering tests
 - [ ] Add storage corruption recovery tests
 - [ ] Target 70%+ code coverage
