@@ -54,6 +54,14 @@ impl ComputedStyle {
     {
         self.rules.iter().any(matcher)
     }
+
+    /// Extract a value from a rule, applying a conversion function
+    pub fn extract<T, F>(&self, matcher: F) -> Option<T>
+    where
+        F: Fn(&StyleRule) -> Option<T>,
+    {
+        self.rules.iter().rev().find_map(|rule| matcher(rule))
+    }
 }
 
 #[cfg(test)]

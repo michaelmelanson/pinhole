@@ -1,4 +1,4 @@
-use pinhole_protocol::stylesheet::StyleRule;
+use pinhole_protocol::stylesheet::{ComputedStyle, StyleRule};
 
 use super::{convert_colour, convert_length, convert_radius, Styleable, Stylesheet};
 
@@ -16,44 +16,71 @@ where
     R: iced::advanced::renderer::Renderer,
 {
     fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &'_ [String]) -> Self {
-        let mut background_colour = iced::Color::TRANSPARENT;
-        let mut text_colour = iced::Color::BLACK;
-        let mut border_colour = iced::Color::TRANSPARENT;
-        let mut border_width = 0.0;
-        let mut border_radius = iced::border::Radius::default();
-        let mut shadow_offset_x = 0.0;
-        let mut shadow_offset_y = 0.0;
-        let mut shadow_blur_radius = 0.0;
-        let mut shadow_colour = iced::Color::TRANSPARENT;
+        let computed = ComputedStyle::compute(&stylesheet.0, classes);
 
-        for class in classes {
-            if let Some(class_def) = stylesheet.0.get(class) {
-                for rule in &class_def.rules {
-                    match rule {
-                        StyleRule::BackgroundColour(colour) => {
-                            background_colour = convert_colour(*colour);
-                        }
-                        StyleRule::TextColour(colour) => text_colour = convert_colour(*colour),
-                        StyleRule::BorderRadius(radius) => border_radius = convert_radius(*radius),
-                        StyleRule::BorderColour(colour) => border_colour = convert_colour(*colour),
-                        StyleRule::BorderWidth(width) => border_width = convert_length(*width),
-                        StyleRule::ShadowOffsetX(offset) => {
-                            shadow_offset_x = convert_length(*offset)
-                        }
-                        StyleRule::ShadowOffsetY(offset) => {
-                            shadow_offset_y = convert_length(*offset)
-                        }
-                        StyleRule::ShadowBlurRadius(radius) => {
-                            shadow_blur_radius = convert_length(*radius)
-                        }
-                        StyleRule::ShadowColour(colour) => shadow_colour = convert_colour(*colour),
+        // Extract values with defaults
+        let background_colour = computed
+            .extract(|r| match r {
+                StyleRule::BackgroundColour(c) => Some(convert_colour(*c)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::TRANSPARENT);
 
-                        #[allow(unreachable_patterns)]
-                        _ => {}
-                    }
-                }
-            }
-        }
+        let text_colour = computed
+            .extract(|r| match r {
+                StyleRule::TextColour(c) => Some(convert_colour(*c)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::BLACK);
+
+        let border_colour = computed
+            .extract(|r| match r {
+                StyleRule::BorderColour(c) => Some(convert_colour(*c)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::TRANSPARENT);
+
+        let border_width = computed
+            .extract(|r| match r {
+                StyleRule::BorderWidth(w) => Some(convert_length(*w)),
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        let border_radius = computed
+            .extract(|r| match r {
+                StyleRule::BorderRadius(r) => Some(convert_radius(*r)),
+                _ => None,
+            })
+            .unwrap_or_default();
+
+        let shadow_offset_x = computed
+            .extract(|r| match r {
+                StyleRule::ShadowOffsetX(x) => Some(convert_length(*x)),
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        let shadow_offset_y = computed
+            .extract(|r| match r {
+                StyleRule::ShadowOffsetY(y) => Some(convert_length(*y)),
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        let shadow_blur_radius = computed
+            .extract(|r| match r {
+                StyleRule::ShadowBlurRadius(r) => Some(convert_length(*r)),
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        let shadow_colour = computed
+            .extract(|r| match r {
+                StyleRule::ShadowColour(c) => Some(convert_colour(*c)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::TRANSPARENT);
 
         self.style(move |_theme, _status| iced::widget::button::Style {
             background: Some(iced::Background::Color(background_colour)),

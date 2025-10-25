@@ -1,4 +1,4 @@
-use pinhole_protocol::stylesheet::StyleRule;
+use pinhole_protocol::stylesheet::{ComputedStyle, StyleRule};
 
 use crate::stylesheet::{convert_font_weight, convert_length};
 
@@ -12,21 +12,28 @@ where
     R::Font: From<iced::Font>,
 {
     fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &[String]) -> Self {
-        let mut text_colour = iced::Color::BLACK;
-        let mut font_size = 14.;
-        let mut font = iced::Font::DEFAULT;
+        let computed = ComputedStyle::compute(&stylesheet.0, classes);
 
-        for class in classes {
-            if let Some(class_def) = stylesheet.0.get(class) {
-                for rule in &class_def.rules {
-                    match rule {
-                        StyleRule::TextColour(colour) => text_colour = convert_colour(*colour),
-                        StyleRule::FontSize(size) => font_size = convert_length(*size),
-                        StyleRule::FontWeight(weight) => font.weight = convert_font_weight(*weight),
-                        _ => {}
-                    }
-                }
-            }
+        let text_colour = computed
+            .extract(|r| match r {
+                StyleRule::TextColour(c) => Some(convert_colour(*c)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::BLACK);
+
+        let font_size = computed
+            .extract(|r| match r {
+                StyleRule::FontSize(s) => Some(convert_length(*s)),
+                _ => None,
+            })
+            .unwrap_or(14.0);
+
+        let mut font = iced::Font::DEFAULT;
+        if let Some(weight) = computed.extract(|r| match r {
+            StyleRule::FontWeight(w) => Some(convert_font_weight(*w)),
+            _ => None,
+        }) {
+            font.weight = weight;
         }
 
         self.color(text_colour).size(font_size).font(font)

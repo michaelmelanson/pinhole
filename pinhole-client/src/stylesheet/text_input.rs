@@ -1,4 +1,4 @@
-use pinhole_protocol::stylesheet::StyleRule;
+use pinhole_protocol::stylesheet::{ComputedStyle, StyleRule};
 
 use crate::stylesheet::{
     convert_alignment, convert_colour, convert_font_weight, convert_length, convert_radius,
@@ -21,36 +21,64 @@ where
     M: Clone,
 {
     fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &[String]) -> Self {
-        let mut align_x = iced::Alignment::Start;
-        let mut font = iced::Font::DEFAULT;
-        let mut background = iced::Background::Color(iced::Color::WHITE);
-        let mut border = iced::Border::default()
-            .width(1)
-            .color(iced::Color::from_rgba(0., 0., 0., 0.5));
+        let computed = ComputedStyle::compute(&stylesheet.0, classes);
 
-        for class in classes {
-            if let Some(class_def) = stylesheet.0.get(class) {
-                for rule in &class_def.rules {
-                    match rule {
-                        StyleRule::BackgroundColour(colour) => {
-                            background = iced::Background::Color(convert_colour(*colour));
-                        }
-                        StyleRule::BorderRadius(radius) => border.radius = convert_radius(*radius),
-                        StyleRule::BorderColour(colour) => border.color = convert_colour(*colour),
-                        StyleRule::BorderWidth(width) => border.width = convert_length(*width),
-                        StyleRule::AlignChildrenX(align) => align_x = convert_alignment(*align),
-                        StyleRule::FontWeight(weight) => font.weight = convert_font_weight(*weight),
-                        _ => {}
-                    }
-                }
-            }
+        let align_x = computed
+            .extract(|r| match r {
+                StyleRule::AlignChildrenX(align) => Some(convert_alignment(*align)),
+                _ => None,
+            })
+            .unwrap_or(iced::Alignment::Start);
+
+        let mut font = iced::Font::DEFAULT;
+        if let Some(weight) = computed.extract(|r| match r {
+            StyleRule::FontWeight(w) => Some(convert_font_weight(*w)),
+            _ => None,
+        }) {
+            font.weight = weight;
         }
+
+        let background = computed
+            .extract(|r| match r {
+                StyleRule::BackgroundColour(colour) => {
+                    Some(iced::Background::Color(convert_colour(*colour)))
+                }
+                _ => None,
+            })
+            .unwrap_or(iced::Background::Color(iced::Color::WHITE));
+
+        let border_width = computed
+            .extract(|r| match r {
+                StyleRule::BorderWidth(width) => Some(convert_length(*width)),
+                _ => None,
+            })
+            .unwrap_or(1.0);
+
+        let border_colour = computed
+            .extract(|r| match r {
+                StyleRule::BorderColour(colour) => Some(convert_colour(*colour)),
+                _ => None,
+            })
+            .unwrap_or(iced::Color::from_rgba(0., 0., 0., 0.5));
+
+        let border_radius = computed
+            .extract(|r| match r {
+                StyleRule::BorderRadius(radius) => Some(convert_radius(*radius)),
+                _ => None,
+            })
+            .unwrap_or_default();
+
+        let border = iced::Border {
+            width: border_width,
+            color: border_colour,
+            radius: border_radius,
+        };
 
         self.font(font.into())
             .align_x(align_x)
             .style(move |_theme, _status| iced::widget::text_input::Style {
-                background: background,
-                border: border,
+                background,
+                border,
                 icon: iced::Color::TRANSPARENT,
                 placeholder: iced::Color::from_rgba(0., 0., 0., 0.5),
                 value: iced::Color::BLACK,
