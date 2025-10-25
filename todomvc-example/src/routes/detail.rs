@@ -70,9 +70,20 @@ fn detail_view(todo: &Todo) -> Document {
         node: Node::Container(ContainerProps {
             direction: Direction::Vertical,
             children: vec![
-                Node::Text(TextProps {
-                    text: "Todo Details".to_string(),
-                    classes: vec!["title".to_string()],
+                Node::Container(ContainerProps {
+                    direction: Direction::Horizontal,
+                    children: vec![
+                        Node::Button(ButtonProps {
+                            label: "← Back to list".to_string(),
+                            on_click: Action::named(BACK_ACTION, vec![]),
+                            classes: vec!["secondary-action".to_string()],
+                        }),
+                        Node::Text(TextProps {
+                            text: "Todo Details".to_string(),
+                            classes: vec!["title".to_string()],
+                        }),
+                    ],
+                    classes: vec!["header-container".to_string()],
                 }),
                 Node::Container(ContainerProps {
                     direction: Direction::Vertical,
@@ -94,11 +105,6 @@ fn detail_view(todo: &Todo) -> Document {
                         }),
                     ],
                     classes: vec!["detail-info".to_string()],
-                }),
-                Node::Button(ButtonProps {
-                    label: "Back to list".to_string(),
-                    on_click: Action::named(BACK_ACTION, vec![]),
-                    classes: vec!["secondary-action".to_string()],
                 }),
             ],
             classes: vec![],
