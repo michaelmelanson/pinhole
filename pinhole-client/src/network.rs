@@ -14,9 +14,10 @@ use crate::storage::StorageManager;
 use pinhole_protocol::{
     action::Action,
     document::Document,
-    messages::{ClientToServerMessage, ServerToClientMessage},
+    messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage},
     network::{receive_server_message, send_message_to_server},
     storage::StateMap,
+    supported_capabilities,
     tls_config::ClientTlsConfig,
 };
 use std::time::Duration;
@@ -147,6 +148,17 @@ async fn session_loop(
 
         log::info!("Connected to server");
 
+        // Send ClientHello to negotiate capabilities
+        let client_capabilities = supported_capabilities();
+        send_message_to_server(
+            &mut stream,
+            ClientToServerMessage::ClientHello {
+                capabilities: client_capabilities,
+            },
+        )
+        .await?;
+
+        // If we have a current path, reload it after connection
         if let Some(path) = current_path.clone() {
             storage_manager.navigate_to(path.clone());
             storage_manager.clear_local_storage();
@@ -185,6 +197,12 @@ async fn session_loop(
                 if let Some(message) = message? {
                 log::info!("Received message from server", {message: message});
                   match message {
+                    ServerToClientMessage::ServerHello { capabilities } => {
+                      log::info!("Received ServerHello", {
+                        capabilities: capabilities.len()
+                      });
+                      // Capability negotiation successful, continue normal operation
+                    }
                     ServerToClientMessage::Render { document } => {
                       if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)) {
                         log::error!("UI thread closed, shutting down network session: {:?}", e);
@@ -205,6 +223,16 @@ async fn session_loop(
                     }
                     ServerToClientMessage::Error { code, message } => {
                       log::error!("Server error {}: {}", code.as_u16(), message);
+
+                      // If we get UpgradeRequired, terminate the connection
+                      if code == ErrorCode::UpgradeRequired {
+                        log::error!("Incompatible protocol version, terminating");
+                        return Err(NetworkError::ProtocolError(format!(
+                          "Incompatible protocol version: {}",
+                          message
+                        )));
+                      }
+
                       if let Err(e) = event_sender.send(NetworkSessionEvent::ServerError {
                         code: code.as_u16(),
                         message,

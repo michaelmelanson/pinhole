@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     action::Action,
+    capabilities::CapabilitySet,
     document::Document,
     storage::{StateMap, StateValue, StorageScope},
 };
@@ -13,6 +14,8 @@ pub enum ErrorCode {
     BadRequest,
     /// 404 Not Found - The requested route does not exist
     NotFound,
+    /// 426 Upgrade Required - Client and server have no compatible capabilities
+    UpgradeRequired,
     /// 500 Internal Server Error - An error occurred processing the request
     InternalServerError,
 }
@@ -23,6 +26,7 @@ impl ErrorCode {
         match self {
             ErrorCode::BadRequest => 400,
             ErrorCode::NotFound => 404,
+            ErrorCode::UpgradeRequired => 426,
             ErrorCode::InternalServerError => 500,
         }
     }
@@ -30,6 +34,10 @@ impl ErrorCode {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ClientToServerMessage {
+    /// Handshake message sent by client after connection
+    ClientHello {
+        capabilities: CapabilitySet,
+    },
     Load {
         path: String,
         storage: StateMap,
@@ -43,6 +51,10 @@ pub enum ClientToServerMessage {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ServerToClientMessage {
+    /// Handshake response from server with negotiated capabilities
+    ServerHello {
+        capabilities: CapabilitySet,
+    },
     Render {
         document: Document,
     },

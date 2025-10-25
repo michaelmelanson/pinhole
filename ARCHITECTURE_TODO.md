@@ -4,11 +4,12 @@ Architectural improvements identified in October 2025 assessment.
 
 ## Priority 0 - Critical
 
-- [ ] **Protocol Versioning**
-  - Add version field to message envelope
-  - Implement version negotiation during connection
-  - Support multiple protocol versions simultaneously
-  - Location: `pinhole-protocol/src/messages.rs`
+- [x] **Protocol Versioning**
+  - Implemented capability-based versioning with URI scheme
+  - ClientHello/ServerHello handshake for capability negotiation
+  - Can renegotiate capabilities at any time during connection
+  - Context.assert_capability() for runtime enforcement
+  - Location: `pinhole-protocol/src/capabilities.rs`, `messages.rs`
 
 - [ ] **Logging and Observability**
   - Adopt `tracing` crate for structured logging

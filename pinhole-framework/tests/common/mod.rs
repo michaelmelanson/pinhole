@@ -89,11 +89,39 @@ pub fn start_test_server<A: Application + 'static>(app: A) -> String {
 /// Connect to a test server with retry logic
 ///
 /// Retries connection with backoff to handle server startup race conditions.
+/// Automatically performs capability negotiation handshake.
 pub async fn connect_test_client(socket_path: &str) -> UnixStream {
     // Retry connection with backoff to handle server startup race
     for i in 0..10 {
-        if let Ok(stream) = UnixStream::connect(socket_path).await {
-            return stream;
+        if let Ok(mut stream) = UnixStream::connect(socket_path).await {
+            // Perform capability negotiation
+            let capabilities = pinhole_protocol::supported_capabilities();
+            send_message_to_server(
+                &mut stream,
+                ClientToServerMessage::ClientHello { capabilities },
+            )
+            .await
+            .expect("Failed to send ClientHello");
+
+            // Wait for ServerHello
+            match receive_server_message(&mut stream).await {
+                Ok(Some(ServerToClientMessage::ServerHello { .. })) => {
+                    // Negotiation successful
+                    return stream;
+                }
+                Ok(Some(ServerToClientMessage::Error { code, message })) => {
+                    panic!("Capability negotiation failed: {:?} - {}", code, message);
+                }
+                Ok(Some(msg)) => {
+                    panic!("Expected ServerHello, got: {:?}", msg);
+                }
+                Ok(None) => {
+                    panic!("Connection closed during handshake");
+                }
+                Err(e) => {
+                    panic!("Network error during handshake: {:?}", e);
+                }
+            }
         }
         tokio::task::yield_now().await;
         if i > 5 {

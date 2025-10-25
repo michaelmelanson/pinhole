@@ -1,4 +1,5 @@
 pub mod action;
+pub mod capabilities;
 pub mod document;
 pub mod layout;
 pub mod messages;
@@ -9,4 +10,5 @@ pub mod stylesheet;
 pub mod tls_config;
 
 // Re-export commonly used types
+pub use capabilities::{supported_capabilities, Capability, CapabilitySet};
 pub use tls_config::{ClientTlsConfig, ServerTlsConfig, TlsConfigError};

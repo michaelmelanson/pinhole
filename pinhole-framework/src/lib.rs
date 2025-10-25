@@ -13,7 +13,9 @@ use tokio_native_tls::TlsStream;
 use pinhole_protocol::{
     messages::{ClientToServerMessage, ErrorCode},
     network::{receive_client_message, send_message_to_client},
+    supported_capabilities,
     tls_config::ServerTlsConfig,
+    CapabilitySet,
 };
 
 pub use application::Application;
@@ -84,12 +86,38 @@ async fn accept_loop(
 }
 
 /// Handle a single request and send response(s) to the stream
+/// Returns Some(capabilities) if capabilities were renegotiated, None otherwise
 pub async fn handle_request(
     application: impl Application,
     request: &ClientToServerMessage,
     stream: &mut impl MessageStream,
-) -> Result<()> {
+    capabilities: &CapabilitySet,
+) -> Result<Option<CapabilitySet>> {
     let result = match request {
+        ClientToServerMessage::ClientHello {
+            capabilities: client_caps,
+        } => {
+            // Capability negotiation can happen at any time
+            log::info!("Received ClientHello, negotiating capabilities");
+
+            let server_capabilities = supported_capabilities();
+            let negotiated_capabilities = server_capabilities.intersect(client_caps);
+
+            log::info!("Capability negotiation successful", {
+                capabilities: negotiated_capabilities.len()
+            });
+            send_message_to_client(
+                stream,
+                ServerToClientMessage::ServerHello {
+                    capabilities: negotiated_capabilities.clone(),
+                },
+            )
+            .await?;
+
+            // Return the new capabilities to update connection state
+            return Ok(Some(negotiated_capabilities));
+        }
+
         ClientToServerMessage::Action {
             path,
             action,
@@ -100,6 +128,7 @@ pub async fn handle_request(
                 let mut context = Context {
                     storage: storage.clone(),
                     stream,
+                    capabilities: capabilities.clone(),
                 };
                 route.action(action, &mut context).await
             } else {
@@ -167,7 +196,7 @@ pub async fn handle_request(
         }
     }
 
-    Ok(())
+    Ok(None)
 }
 
 /// Generic connection handler that works with any async stream (processes multiple requests)
@@ -175,6 +204,9 @@ pub async fn handle_connection(
     application: impl Application,
     stream: &mut impl MessageStream,
 ) -> Result<()> {
+    // Start with empty capabilities - client must negotiate
+    let mut capabilities = CapabilitySet::new();
+
     loop {
         // Receive message - network errors are fatal and close connection
         let request = match receive_client_message(stream).await {
@@ -189,8 +221,13 @@ pub async fn handle_connection(
             }
         };
 
-        // Handle this request
-        handle_request(application, &request, stream).await?;
+        // Handle this request and update capabilities if renegotiated
+        match handle_request(application, &request, stream, &capabilities).await? {
+            Some(new_capabilities) => {
+                capabilities = new_capabilities;
+            }
+            None => {}
+        }
     }
 
     Ok(())
