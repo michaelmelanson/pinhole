@@ -12,6 +12,7 @@ pub struct ListRoute;
 const TASK_CHECKED: &str = "checked";
 const TASK_ID_KEY: &str = "id";
 const LOGOUT_ACTION: &str = "logout";
+const VIEW_DETAILS: &str = "view_details";
 
 #[async_trait::async_trait]
 impl Route for ListRoute {
@@ -35,6 +36,13 @@ impl Route for ListRoute {
                             tracing::debug!(id = %id, "Task unchecked");
                         }
                     }
+                }
+            }
+
+            Action { name, args, .. } if name == VIEW_DETAILS => {
+                if let Some(id) = args.get(TASK_ID_KEY) {
+                    tracing::debug!(id = %id, "Viewing todo details");
+                    context.redirect(&format!("/todos/{}", id)).await?;
                 }
             }
 
@@ -122,16 +130,31 @@ fn list(todos: &Vec<Todo>, storage: &StateMap) -> Document {
                     children: todos
                         .iter()
                         .map(|t| {
-                            Node::Checkbox(CheckboxProps {
-                                id: t.id.clone(),
-                                label: t.text.clone(),
-                                checked: t.done,
-                                on_change: Action::new(
-                                    TASK_CHECKED,
-                                    hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
-                                    vec![t.id.clone()],
-                                ),
-                                classes: vec![],
+                            Node::Container(ContainerProps {
+                                direction: Direction::Horizontal,
+                                children: vec![
+                                    Node::Checkbox(CheckboxProps {
+                                        id: t.id.clone(),
+                                        label: t.text.clone(),
+                                        checked: t.done,
+                                        on_change: Action::new(
+                                            TASK_CHECKED,
+                                            hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
+                                            vec![t.id.clone()],
+                                        ),
+                                        classes: vec![],
+                                    }),
+                                    Node::Button(ButtonProps {
+                                        label: "View details".to_string(),
+                                        on_click: Action::new(
+                                            VIEW_DETAILS,
+                                            hashmap! { TASK_ID_KEY.to_string() => t.id.clone() },
+                                            vec![],
+                                        ),
+                                        classes: vec!["secondary-action".to_string()],
+                                    }),
+                                ],
+                                classes: vec!["todo-item".to_string()],
                             })
                         })
                         .collect::<Vec<_>>(),
