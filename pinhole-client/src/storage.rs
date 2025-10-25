@@ -7,6 +7,47 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
+fn state_value_to_json(value: &StateValue) -> serde_json::Value {
+    match value {
+        StateValue::Empty => serde_json::Value::Null,
+        StateValue::Null => serde_json::Value::Null,
+        StateValue::Boolean(b) => serde_json::Value::Bool(*b),
+        StateValue::Number(n) => serde_json::Value::Number(
+            serde_json::Number::from_f64(*n).unwrap_or_else(|| serde_json::Number::from(0)),
+        ),
+        StateValue::String(s) => serde_json::Value::String(s.clone()),
+        StateValue::Array(arr) => {
+            serde_json::Value::Array(arr.iter().map(state_value_to_json).collect())
+        }
+        StateValue::Object(obj) => {
+            let map = obj
+                .iter()
+                .map(|(k, v)| (k.clone(), state_value_to_json(v)))
+                .collect();
+            serde_json::Value::Object(map)
+        }
+    }
+}
+
+fn json_to_state_value(value: &serde_json::Value) -> StateValue {
+    match value {
+        serde_json::Value::Null => StateValue::Null,
+        serde_json::Value::Bool(b) => StateValue::Boolean(*b),
+        serde_json::Value::Number(n) => StateValue::Number(n.as_f64().unwrap_or(0.0)),
+        serde_json::Value::String(s) => StateValue::String(s.clone()),
+        serde_json::Value::Array(arr) => {
+            StateValue::Array(arr.iter().map(json_to_state_value).collect())
+        }
+        serde_json::Value::Object(obj) => {
+            let map = obj
+                .iter()
+                .map(|(k, v)| (k.clone(), json_to_state_value(v)))
+                .collect();
+            StateValue::Object(map)
+        }
+    }
+}
+
 pub struct StorageManager {
     persistent_storage: StateMap,
     session_storage: StateMap,
@@ -102,11 +143,7 @@ impl StorageManager {
 
             let mut state_map = HashMap::new();
             for (key, value) in json_map {
-                let state_value = match value {
-                    serde_json::Value::String(s) => StateValue::String(s),
-                    serde_json::Value::Bool(b) => StateValue::Boolean(b),
-                    _ => continue, // Skip unsupported types
-                };
+                let state_value = json_to_state_value(&value);
                 state_map.insert(key, state_value);
             }
 
@@ -127,11 +164,7 @@ impl StorageManager {
 
         let mut json_map = HashMap::new();
         for (key, value) in &self.persistent_storage {
-            let json_value = match value {
-                StateValue::Empty => serde_json::Value::Null,
-                StateValue::String(s) => serde_json::Value::String(s.clone()),
-                StateValue::Boolean(b) => serde_json::Value::Bool(*b),
-            };
+            let json_value = state_value_to_json(value);
             json_map.insert(key.clone(), json_value);
         }
 

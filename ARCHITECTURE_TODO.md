@@ -18,18 +18,6 @@ Architectural improvements identified in October 2025 assessment.
   - Tracks messages_processed per connection
   - Location: All modules, primary in `pinhole-framework/src/lib.rs`
 
-- [ ] **Request Validation**
-  - Implement typed actions with serde validation
-  - Add validation decorators (email, length, range)
-  - Generate automatic error responses for bad data
-  - Location: `pinhole-protocol/src/action.rs`
-
-- [ ] **Authentication Framework**
-  - Add authenticated route trait with user identity
-  - Implement session management
-  - Add CSRF protection and rate limiting
-  - Location: New framework module
-
 ## Priority 1 - Important
 
 - [ ] **Error Handling Granularity**
@@ -44,9 +32,11 @@ Architectural improvements identified in October 2025 assessment.
   - Use trie-based router for O(log n) lookups
   - Location: `pinhole-framework/src/application.rs`
 
-- [ ] **Storage Type System**
-  - Add Number, Array, Object types (JSON-like)
-  - Support nested structures
+- [x] **Storage Type System**
+  - Added Number, Array, Object types with JSON-compatible semantics
+  - Support nested structures with accessor methods
+  - From implementations for convenient conversions
+  - Comprehensive test coverage
   - Location: `pinhole-protocol/src/storage.rs`
 
 - [ ] **State Synchronisation**
