@@ -38,7 +38,7 @@ impl RoutePattern {
 
     /// Check if a path matches this pattern and extract parameters
     pub fn matches(&self, path: &str) -> Option<Params> {
-        let path_segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+        let path_segments = path_segments(path)?;
 
         if path_segments.len() != self.segments.len() {
             return None;
@@ -64,6 +64,22 @@ impl RoutePattern {
 
     pub fn pattern(&self) -> &str {
         &self.pattern
+    }
+}
+
+/// Splits an absolute path into segments, or `None` if it isn't absolute.
+///
+/// Unlike a plain `split('/').filter(...)`, this distinguishes "" from "/"
+/// (neither matches an empty pattern) and preserves a trailing slash as an
+/// extra empty segment, so "/about/" has a different segment count than
+/// "/about" and won't match it.
+fn path_segments(path: &str) -> Option<Vec<&str>> {
+    let rest = path.strip_prefix('/')?;
+
+    if rest.is_empty() {
+        Some(Vec::new())
+    } else {
+        Some(rest.split('/').collect())
     }
 }
 
@@ -124,8 +140,14 @@ mod tests {
     #[test]
     fn test_trailing_slash() {
         let pattern = RoutePattern::new("/users/:id");
-        // Both should work
+        // A trailing slash is a different path and should not match.
         assert!(pattern.matches("/users/123").is_some());
-        assert!(pattern.matches("/users/123/").is_some());
+        assert!(pattern.matches("/users/123/").is_none());
+    }
+
+    #[test]
+    fn test_empty_path() {
+        let pattern = RoutePattern::new("/");
+        assert!(pattern.matches("").is_none());
     }
 }
