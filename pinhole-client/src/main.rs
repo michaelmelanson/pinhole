@@ -68,12 +68,11 @@ impl Pinhole {
     }
 
     fn subscription(&self) -> Subscription<PinholeMessage> {
-        Subscription::run_with_id(
-            "network_session",
-            self.network_session
+        Subscription::run_with(self.network_session.clone(), |network_session| {
+            network_session
                 .event_receiver()
-                .filter_map(|result| async move { result.ok() }),
-        )
+                .filter_map(|result| async move { result.ok() })
+        })
         .map(PinholeMessage::NetworkSessionEvent)
     }
 
@@ -172,7 +171,8 @@ fn main() -> iced::Result {
         )
         .init();
 
-    iced::application("Pinhole", Pinhole::update, Pinhole::view)
+    iced::application(Pinhole::new, Pinhole::update, Pinhole::view)
+        .title("Pinhole")
         .subscription(Pinhole::subscription)
-        .run_with(Pinhole::new)
+        .run()
 }

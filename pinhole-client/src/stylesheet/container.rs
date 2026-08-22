@@ -121,6 +121,7 @@ where
                 background,
                 border,
                 shadow,
+                snap: false,
             })
     }
 }

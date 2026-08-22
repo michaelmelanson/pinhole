@@ -59,7 +59,7 @@ impl UiNode {
         state_map: &StateMap,
     ) -> iced::Element<'static, PinholeMessage> {
         match self {
-            UiNode::Empty => Space::new(Length::Fill, Length::Fill).into(),
+            UiNode::Empty => Space::new().width(Length::Fill).height(Length::Fill).into(),
             UiNode::Text(TextProps { text, classes }) => Text::new(text.clone())
                 .apply_stylesheet(stylesheet, classes)
                 .into(),
@@ -85,7 +85,8 @@ impl UiNode {
                 let default_value = StateValue::Boolean(checked);
                 let value = state_map.get(&id).unwrap_or(&default_value);
 
-                Checkbox::new(label.clone(), value.boolean())
+                Checkbox::new(value.boolean())
+                    .label(label.clone())
                     .on_toggle(move |value| PinholeMessage::FormValueChanged {
                         id: id.clone(),
                         value: StateValue::Boolean(value),
@@ -135,7 +136,7 @@ impl UiNode {
 
                 let id = id.clone();
                 let placeholder = &placeholder.clone().unwrap_or("".to_string());
-                let mut input_child = TextInput::new(placeholder, &value.string())
+                let mut input_child = TextInput::new(placeholder, value.string())
                     .on_input(move |new_value| PinholeMessage::FormValueChanged {
                         id: id.clone(),
                         value: StateValue::String(new_value),

@@ -95,6 +95,7 @@ where
                 offset: iced::Vector::new(shadow_offset_x, shadow_offset_y),
                 blur_radius: shadow_blur_radius,
             },
+            snap: false,
         })
     }
 }
