@@ -41,20 +41,17 @@ impl Route for ArgumentsRoute {
         _params: &Params,
         context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
-        match action.name.as_str() {
-            "echo_args" => {
-                // Store each argument back to verify they were received
-                for (key, value) in &action.args {
-                    context
-                        .store(
-                            StorageScope::Session,
-                            key.clone(),
-                            StateValue::String(value.clone()),
-                        )
-                        .await?;
-                }
+        if action.name.as_str() == "echo_args" {
+            // Store each argument back to verify they were received
+            for (key, value) in &action.args {
+                context
+                    .store(
+                        StorageScope::Session,
+                        key.clone(),
+                        StateValue::String(value.clone()),
+                    )
+                    .await?;
             }
-            _ => {}
         }
         Ok(())
     }
@@ -85,22 +82,19 @@ impl Route for KeysRoute {
         _params: &Params,
         context: &mut Context<'a>,
     ) -> pinhole::Result<()> {
-        match action.name.as_str() {
-            "submit" => {
-                // Echo back the captured fields to verify they were received
-                for key in &action.keys {
-                    if let Some(value) = context.storage.get(key) {
-                        context
-                            .store(
-                                StorageScope::Session,
-                                format!("captured_{}", key),
-                                value.clone(),
-                            )
-                            .await?;
-                    }
+        if action.name.as_str() == "submit" {
+            // Echo back the captured fields to verify they were received
+            for key in &action.keys {
+                if let Some(value) = context.storage.get(key) {
+                    context
+                        .store(
+                            StorageScope::Session,
+                            format!("captured_{}", key),
+                            value.clone(),
+                        )
+                        .await?;
                 }
             }
-            _ => {}
         }
         Ok(())
     }
@@ -309,16 +303,12 @@ impl Route for ErrorRoute {
     ) -> pinhole::Result<()> {
         match action.name.as_str() {
             "trigger_error" => {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Intentional test error",
-                )));
+                return Err(Box::new(std::io::Error::other("Intentional test error")));
             }
             "conditional_error" => {
                 if let Some(should_error) = action.args.get("error") {
                     if should_error == "true" {
-                        return Err(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::Other,
+                        return Err(Box::new(std::io::Error::other(
                             "Conditional error triggered",
                         )));
                     }

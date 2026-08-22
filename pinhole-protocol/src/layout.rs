@@ -28,7 +28,6 @@ impl Layout {
                 position: Position::Centre,
                 ..self.vertical
             },
-            ..*self
         }
     }
 }
@@ -52,28 +51,18 @@ impl Sizing {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum Position {
+    #[default]
     Start,
     End,
     Centre,
 }
 
-impl Default for Position {
-    fn default() -> Self {
-        Position::Start
-    }
-}
-
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub enum Size {
     Auto,
     Fixed(u16),
+    #[default]
     Fill,
-}
-
-impl Default for Size {
-    fn default() -> Self {
-        Size::Fill
-    }
 }

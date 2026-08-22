@@ -42,7 +42,7 @@ impl Route for DetailRoute {
 
         // In a real app, this would fetch from a database
         // For now, we'll use the same hardcoded todos
-        let todos = vec![
+        let todos = [
             Todo {
                 id: "1".to_string(),
                 text: "Dishes".to_string(),

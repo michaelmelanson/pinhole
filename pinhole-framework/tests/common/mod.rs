@@ -1,4 +1,8 @@
 //! Common test utilities shared across integration tests
+//!
+//! Each integration test file is compiled as its own binary and only uses a
+//! subset of these helpers, so unused-in-this-binary warnings are expected.
+#![allow(dead_code)]
 
 use pinhole::{Action, Application, Node};
 use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
@@ -20,7 +24,6 @@ pub fn assert_render(messages: &[ServerToClientMessage], expected_node: Node) {
 }
 
 /// Assert that messages contain a single Store message with expected values
-#[allow(dead_code)]
 pub fn assert_store(
     messages: &[ServerToClientMessage],
     expected_key: &str,
@@ -36,7 +39,6 @@ pub fn assert_store(
 }
 
 /// Assert that messages contain a single Error with expected code
-#[allow(dead_code)]
 pub fn assert_error(
     messages: &[ServerToClientMessage],
     expected_code: ErrorCode,
@@ -51,7 +53,6 @@ pub fn assert_error(
 }
 
 /// Assert that messages contain a single RedirectTo with expected path
-#[allow(dead_code)]
 pub fn assert_redirect(messages: &[ServerToClientMessage], expected_path: &str) {
     assert_eq!(messages.len(), 1);
     let ServerToClientMessage::RedirectTo { path } = &messages[0] else {

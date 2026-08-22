@@ -155,7 +155,7 @@ async fn test_multiple_concurrent_connections() {
         let task = tokio::spawn(async move {
             send_request_and_receive(&socket_path_clone, "/hello", StateMap::new())
                 .await
-                .expect(&format!("Client {} failed", i))
+                .unwrap_or_else(|_| panic!("Client {} failed", i))
         });
         client_tasks.push(task);
     }
@@ -194,7 +194,7 @@ async fn test_concurrent_requests_to_shared_state() {
 
             let messages = send_request_and_receive(&socket_path_clone, "/echo", storage)
                 .await
-                .expect(&format!("Client {} failed", i));
+                .unwrap_or_else(|_| panic!("Client {} failed", i));
 
             (i, messages)
         });
@@ -251,7 +251,7 @@ async fn test_interleaved_requests() {
         for i in 0..3 {
             let messages = send_request_and_receive(&socket_path1, "/echo", storage.clone())
                 .await
-                .expect(&format!("Client 1 request {} failed", i));
+                .unwrap_or_else(|_| panic!("Client 1 request {} failed", i));
 
             assert_eq!(messages.len(), 1);
 
@@ -278,7 +278,7 @@ async fn test_interleaved_requests() {
         for i in 0..3 {
             let messages = send_request_and_receive(&socket_path2, "/echo", storage.clone())
                 .await
-                .expect(&format!("Client 2 request {} failed", i));
+                .unwrap_or_else(|_| panic!("Client 2 request {} failed", i));
 
             assert_eq!(messages.len(), 1);
 

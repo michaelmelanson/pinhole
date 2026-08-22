@@ -255,11 +255,10 @@ pub async fn handle_connection(
         message_count += 1;
 
         // Handle this request and update capabilities if renegotiated
-        match handle_request(application, &request, stream, &capabilities).await? {
-            Some(new_capabilities) => {
-                capabilities = new_capabilities;
-            }
-            None => {}
+        if let Some(new_capabilities) =
+            handle_request(application, &request, stream, &capabilities).await?
+        {
+            capabilities = new_capabilities;
         }
     }
 

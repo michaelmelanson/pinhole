@@ -69,7 +69,7 @@ impl Route for ListRoute {
             return Render::RedirectTo("/".to_string());
         }
 
-        let todos = vec![
+        let todos = [
             Todo {
                 id: "1".to_string(),
                 text: "Dishes".to_string(),
@@ -86,7 +86,7 @@ impl Route for ListRoute {
     }
 }
 
-fn list(todos: &Vec<Todo>, storage: &StateMap) -> Document {
+fn list(todos: &[Todo], storage: &StateMap) -> Document {
     let email = storage
         .get("saved_email")
         .map(|v| v.string())
