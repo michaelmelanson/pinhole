@@ -83,8 +83,8 @@ pub async fn send_message_to_server<S: WriteStream + ?Sized>(
     let bytes = serde_cbor::to_vec(&request)?;
 
     let request_length: u32 = bytes.len() as u32;
-    stream.write(&request_length.to_le_bytes()).await?;
-    stream.write(&bytes).await?;
+    stream.write_all(&request_length.to_le_bytes()).await?;
+    stream.write_all(&bytes).await?;
 
     Ok(())
 }
@@ -96,25 +96,47 @@ pub async fn send_message_to_client<S: WriteStream + ?Sized>(
     let bytes = serde_cbor::to_vec(&response)?;
 
     let response_length: u32 = bytes.len() as u32;
-    stream.write(&response_length.to_le_bytes()).await?;
-    stream.write(&bytes).await?;
+    stream.write_all(&response_length.to_le_bytes()).await?;
+    stream.write_all(&bytes).await?;
 
     Ok(())
+}
+
+/// Reads the 4-byte length prefix, or `None` if the stream closed before any
+/// bytes arrived (a graceful disconnect). A close in the middle of the prefix
+/// is a genuine error, not a graceful one, so it's reported as such.
+async fn read_length_prefix<S: ReadStream + ?Sized>(stream: &mut S) -> Result<Option<u32>> {
+    let mut bytes = [0u8; 4];
+    let mut filled = 0;
+
+    while filled < bytes.len() {
+        let read = stream.read(&mut bytes[filled..]).await?;
+        if read == 0 {
+            if filled == 0 {
+                return Ok(None);
+            }
+            return Err(NetworkError::IoError(std::io::Error::from(
+                std::io::ErrorKind::UnexpectedEof,
+            )));
+        }
+        filled += read;
+    }
+
+    Ok(Some(u32::from_le_bytes(bytes)))
 }
 
 pub async fn receive_server_message<S: ReadStream + ?Sized>(
     stream: &mut S,
 ) -> Result<Option<ServerToClientMessage>> {
-    let mut bytes = [0u8; 4];
-    stream.read(&mut bytes).await?;
-    let response_length = u32::from_le_bytes(bytes);
+    let Some(response_length) = read_length_prefix(stream).await? else {
+        return Ok(None);
+    };
 
     if response_length > 0 {
         validate_message_size(response_length)?;
 
-        let mut bytes = Vec::new();
-        bytes.resize(response_length as usize, 0u8);
-        stream.read(&mut bytes).await?;
+        let mut bytes = vec![0u8; response_length as usize];
+        stream.read_exact(&mut bytes).await?;
 
         let response = serde_cbor::from_slice::<ServerToClientMessage>(&bytes)?;
         Ok(Some(response))
@@ -126,16 +148,15 @@ pub async fn receive_server_message<S: ReadStream + ?Sized>(
 pub async fn receive_client_message<S: ReadStream + ?Sized>(
     stream: &mut S,
 ) -> Result<Option<ClientToServerMessage>> {
-    let mut bytes = [0u8; 4];
-    stream.read(&mut bytes).await?;
-    let request_length = u32::from_le_bytes(bytes);
+    let Some(request_length) = read_length_prefix(stream).await? else {
+        return Ok(None);
+    };
 
     if request_length > 0 {
         validate_message_size(request_length)?;
 
-        let mut bytes = Vec::new();
-        bytes.resize(request_length as usize, 0u8);
-        stream.read(&mut bytes).await?;
+        let mut bytes = vec![0u8; request_length as usize];
+        stream.read_exact(&mut bytes).await?;
 
         let request = serde_cbor::from_slice::<ClientToServerMessage>(&bytes)?;
         Ok(Some(request))

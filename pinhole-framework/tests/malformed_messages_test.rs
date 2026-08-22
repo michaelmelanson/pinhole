@@ -145,8 +145,12 @@ async fn test_truncated_message() {
         .await
         .expect("Failed to send partial data");
 
-    // Close the write side to simulate truncation
-    client_stream.flush().await.ok();
+    // Half-close the write side to simulate truncation: the server is still waiting
+    // on the other 90 bytes it was promised, so it needs to see EOF to give up on them.
+    client_stream
+        .shutdown()
+        .await
+        .expect("Failed to shut down write side");
 
     // The server should handle this gracefully (likely by closing connection)
     let mut buf = [0u8; 4];
