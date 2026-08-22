@@ -36,4 +36,17 @@ pub enum StyleRule {
     Width(Size),
     Height(Size),
     Gap(Length),
+
+    /// Cross-axis alignment of children within a Row/Column (CSS `align-items`).
+    /// Distinct from `AlignChildrenX`/`AlignChildrenY`, which position the
+    /// Row/Column block itself within its parent Container.
+    AlignItems(Alignment),
+
+    /// Proportional share of the remaining main-axis space this child should
+    /// take, relative to its siblings (CSS `flex-grow`). Applies to a node as
+    /// a child of a Container, not to the Container itself. Unlike CSS,
+    /// there's no separate flex-basis: this maps directly to iced's
+    /// `Length::FillPortion`, so a value of `0.0` collapses the child to zero
+    /// size along the main axis rather than leaving it at its natural size.
+    FlexGrow(f32),
 }

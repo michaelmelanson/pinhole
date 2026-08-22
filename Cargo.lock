@@ -2450,6 +2450,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pinhole-styling-showcase-example"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "pinhole",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "pinhole-todomvc-example"
 version = "0.1.0"
 dependencies = [

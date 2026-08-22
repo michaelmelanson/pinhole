@@ -25,7 +25,8 @@ pub use pinhole_protocol::{
     node::{ButtonProps, CheckboxProps, ContainerProps, InputProps, Node, TextProps},
     storage::{StateMap, StateValue, StorageScope},
     stylesheet::{
-        Alignment, Colour, Direction, FontWeight, Length, StyleRule, Stylesheet, StylesheetClass,
+        Alignment, Colour, Direction, FontWeight, Length, MediaRule, StyleRule, Stylesheet,
+        StylesheetClass,
     },
     tls_config::ServerTlsConfig as TlsConfig,
 };

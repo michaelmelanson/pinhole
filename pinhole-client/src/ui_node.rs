@@ -1,13 +1,16 @@
 use iced::{
-    widget::{Button, Checkbox, Column, Container, Row, Space, Text, TextInput},
+    widget::{container, Button, Checkbox, Column, Container, Row, Space, Text, TextInput},
     Alignment, Length,
 };
 
-use crate::{stylesheet::Styleable, stylesheet::Stylesheet, PinholeMessage};
+use crate::{
+    stylesheet::{Styleable, Stylesheet, Viewport},
+    PinholeMessage,
+};
 use pinhole_protocol::{
     node::{ButtonProps, CheckboxProps, ContainerProps, InputProps, Node, TextProps},
     storage::{StateMap, StateValue},
-    stylesheet::Direction,
+    stylesheet::{ComputedStyle, Direction, PseudoState, StyleRule},
 };
 
 pub struct UiContainerProps {
@@ -53,15 +56,31 @@ impl From<Node> for UiNode {
 }
 
 impl UiNode {
+    /// This node's own classes, as they'd be looked up in a stylesheet if
+    /// this node were a child of a Container (e.g. to resolve its
+    /// `FlexGrow`). `Input` has two separate class lists (label/input) and
+    /// no single "own" class list, so it has none for this purpose.
+    fn classes(&self) -> &[String] {
+        match self {
+            UiNode::Empty => &[],
+            UiNode::Container(UiContainerProps { classes, .. }) => classes,
+            UiNode::Text(TextProps { classes, .. }) => classes,
+            UiNode::Button(ButtonProps { classes, .. }) => classes,
+            UiNode::Checkbox(CheckboxProps { classes, .. }) => classes,
+            UiNode::Input(_) => &[],
+        }
+    }
+
     pub fn view(
         &self,
         stylesheet: &Stylesheet,
         state_map: &StateMap,
+        viewport: Option<Viewport>,
     ) -> iced::Element<'static, PinholeMessage> {
         match self {
             UiNode::Empty => Space::new().width(Length::Fill).height(Length::Fill).into(),
             UiNode::Text(TextProps { text, classes }) => Text::new(text.clone())
-                .apply_stylesheet(stylesheet, classes)
+                .apply_stylesheet(stylesheet, classes, viewport)
                 .into(),
             UiNode::Button(ButtonProps {
                 label,
@@ -69,7 +88,7 @@ impl UiNode {
                 classes,
             }) => Button::new(Text::new(label.clone()))
                 .on_press(PinholeMessage::PerformAction(on_click.clone()))
-                .apply_stylesheet(stylesheet, classes)
+                .apply_stylesheet(stylesheet, classes, viewport)
                 .into(),
 
             UiNode::Checkbox(CheckboxProps {
@@ -92,7 +111,7 @@ impl UiNode {
                         value: StateValue::Boolean(value),
                         action: Some(on_change.clone()),
                     })
-                    .apply_stylesheet(stylesheet, classes)
+                    .apply_stylesheet(stylesheet, classes, viewport)
                     .into()
             }
 
@@ -104,20 +123,47 @@ impl UiNode {
                 let mut elements = Vec::new();
 
                 for element in children.iter() {
-                    elements.push(element.view(stylesheet, state_map));
+                    let child_view = element.view(stylesheet, state_map, viewport);
+
+                    // FlexGrow is a per-child property: resolve it from the
+                    // child's own classes, not the container's, and wrap the
+                    // already-built element to give it a proportional share
+                    // of the remaining main-axis space.
+                    let flex_grow = ComputedStyle::compute_with_context(
+                        &stylesheet.0,
+                        element.classes(),
+                        viewport,
+                        PseudoState::default(),
+                    )
+                    .extract(|r| match r {
+                        StyleRule::FlexGrow(grow) => Some(*grow),
+                        _ => None,
+                    });
+
+                    let child_view = match (flex_grow, direction) {
+                        (Some(grow), Direction::Horizontal) => container(child_view)
+                            .width(Length::FillPortion(grow.round() as u16))
+                            .into(),
+                        (Some(grow), Direction::Vertical) => container(child_view)
+                            .height(Length::FillPortion(grow.round() as u16))
+                            .into(),
+                        (None, _) => child_view,
+                    };
+
+                    elements.push(child_view);
                 }
 
                 let content: iced::Element<PinholeMessage> = match direction {
                     Direction::Horizontal => Row::with_children(elements)
-                        .apply_stylesheet(stylesheet, classes)
+                        .apply_stylesheet(stylesheet, classes, viewport)
                         .into(),
                     Direction::Vertical => Column::with_children(elements)
-                        .apply_stylesheet(stylesheet, classes)
+                        .apply_stylesheet(stylesheet, classes, viewport)
                         .into(),
                 };
 
                 Container::new(content)
-                    .apply_stylesheet(stylesheet, classes)
+                    .apply_stylesheet(stylesheet, classes, viewport)
                     .into()
             }
 
@@ -148,10 +194,10 @@ impl UiNode {
                     input_child = input_child.secure(true);
                 }
 
-                input_child = input_child.apply_stylesheet(stylesheet, input_classes);
+                input_child = input_child.apply_stylesheet(stylesheet, input_classes, viewport);
 
                 let label_child = Text::new(label.clone())
-                    .apply_stylesheet(stylesheet, label_classes)
+                    .apply_stylesheet(stylesheet, label_classes, viewport)
                     .into();
 
                 Column::with_children(vec![label_child, input_child.into()])

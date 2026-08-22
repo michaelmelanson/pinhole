@@ -1,8 +1,8 @@
-use pinhole_protocol::stylesheet::{ComputedStyle, StyleRule};
+use pinhole_protocol::stylesheet::{ComputedStyle, PseudoState, StyleRule};
 
 use crate::stylesheet::{convert_font_weight, convert_length};
 
-use super::{convert_colour, Styleable, Stylesheet};
+use super::{convert_colour, Styleable, Stylesheet, Viewport};
 
 impl<T: iced::widget::text::Catalog, R: iced::advanced::text::Renderer> Styleable
     for iced::advanced::widget::Text<'static, T, R>
@@ -11,8 +11,18 @@ where
         From<Box<dyn for<'a> std::ops::Fn(&'a T) -> iced::widget::text::Style>>,
     R::Font: From<iced::Font>,
 {
-    fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &[String]) -> Self {
-        let computed = ComputedStyle::compute(&stylesheet.0, classes);
+    fn apply_stylesheet(
+        self,
+        stylesheet: &Stylesheet,
+        classes: &[String],
+        viewport: Option<Viewport>,
+    ) -> Self {
+        let computed = ComputedStyle::compute_with_context(
+            &stylesheet.0,
+            classes,
+            viewport,
+            PseudoState::default(),
+        );
 
         let text_colour = computed
             .extract(|r| match r {

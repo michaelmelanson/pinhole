@@ -3,7 +3,16 @@
 //! This module provides a flattened representation of styles that apply to a widget,
 //! computed from a stylesheet and list of class names.
 
-use super::{StyleRule, Stylesheet};
+use super::{StyleRule, Stylesheet, Viewport};
+
+/// Whether a widget is currently in an interactive pseudo-class state
+/// (CSS `:hover`/`:focus`), used by `ComputedStyle::compute_with_context`
+/// to decide whether a class's `hover_rules`/`focus_rules` apply.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct PseudoState {
+    pub hovered: bool,
+    pub focused: bool,
+}
 
 /// Computed styles for a widget, with all applicable rules flattened
 ///
@@ -16,22 +25,59 @@ pub struct ComputedStyle {
 impl ComputedStyle {
     /// Compute styles for a widget with the given classes
     ///
-    /// Rules from later classes override rules from earlier classes
+    /// Rules from later classes override rules from earlier classes. This
+    /// never applies `@media`/`:hover`/`:focus` rules — use
+    /// `compute_with_context` for that.
     pub fn compute(stylesheet: &Stylesheet, classes: &[String]) -> Self {
+        Self::compute_with_context(stylesheet, classes, None, PseudoState::default())
+    }
+
+    /// Compute styles for a widget with the given classes, additionally
+    /// layering in any matching `@media` rules and, if `pseudo` indicates
+    /// an active interactive state, `:hover`/`:focus` rules.
+    ///
+    /// Per class, layering order is: base rules, then matching
+    /// `media_rules` (in declared order), then `hover_rules` if
+    /// `pseudo.hovered`, then `focus_rules` if `pseudo.focused` — each
+    /// layer overrides earlier rules of the same kind, same as across
+    /// classes.
+    pub fn compute_with_context(
+        stylesheet: &Stylesheet,
+        classes: &[String],
+        viewport: Option<Viewport>,
+        pseudo: PseudoState,
+    ) -> Self {
         let mut rules = Vec::new();
 
         for class_name in classes {
             if let Some(class) = stylesheet.get(class_name) {
-                for rule in &class.rules {
-                    // Remove any existing rule of the same type
-                    rules.retain(|r| std::mem::discriminant(r) != std::mem::discriminant(rule));
-                    // Add the new rule
-                    rules.push(rule.clone());
+                Self::layer(&mut rules, &class.rules);
+
+                for media in &class.media_rules {
+                    if viewport.is_some_and(|v| media.matches(v)) {
+                        Self::layer(&mut rules, &media.rules);
+                    }
+                }
+
+                if pseudo.hovered {
+                    Self::layer(&mut rules, &class.hover_rules);
+                }
+                if pseudo.focused {
+                    Self::layer(&mut rules, &class.focus_rules);
                 }
             }
         }
 
         ComputedStyle { rules }
+    }
+
+    /// Layer `new_rules` on top of `rules`, with each new rule overriding
+    /// any existing rule of the same kind (same enum discriminant).
+    fn layer(rules: &mut Vec<StyleRule>, new_rules: &[StyleRule]) {
+        for rule in new_rules {
+            rules.retain(|r| std::mem::discriminant(r) != std::mem::discriminant(rule));
+            rules.push(rule.clone());
+        }
     }
 
     /// Get a specific style rule by matching on the discriminant
@@ -314,5 +360,171 @@ mod tests {
         assert!(style.has(|r| matches!(r, StyleRule::AlignChildrenX(_))));
         assert!(style.has(|r| matches!(r, StyleRule::AlignChildrenY(_))));
         assert!(style.has(|r| matches!(r, StyleRule::Gap(_))));
+    }
+
+    #[test]
+    fn test_align_items_and_flex_grow() {
+        let stylesheet = Stylesheet::new(vec![StylesheetClass::new(
+            "flexy",
+            vec![
+                StyleRule::AlignItems(Alignment::Centre),
+                StyleRule::FlexGrow(2.0),
+            ],
+        )]);
+
+        let style = ComputedStyle::compute(&stylesheet, &["flexy".to_string()]);
+
+        assert_eq!(style.rules().len(), 2);
+        assert!(matches!(
+            style.get(|r| matches!(r, StyleRule::AlignItems(_))),
+            Some(StyleRule::AlignItems(Alignment::Centre))
+        ));
+        assert!(matches!(
+            style.get(|r| matches!(r, StyleRule::FlexGrow(_))),
+            Some(StyleRule::FlexGrow(g)) if *g == 2.0
+        ));
+    }
+
+    #[test]
+    fn test_compute_ignores_media_hover_focus_rules() {
+        use crate::stylesheet::media_rule::MediaRule;
+
+        let stylesheet = Stylesheet::new(vec![StylesheetClass::new(
+            "base",
+            vec![StyleRule::FontSize(Length::Pixels(14.0))],
+        )
+        .with_hover(vec![StyleRule::FontSize(Length::Pixels(20.0))])
+        .with_focus(vec![StyleRule::FontSize(Length::Pixels(24.0))])
+        .with_media(vec![MediaRule::new(vec![StyleRule::FontSize(
+            Length::Pixels(30.0),
+        )])
+        .min_width(0.0)])]);
+
+        // Plain compute() must ignore hover/focus/media entirely, regardless
+        // of viewport or interaction state.
+        let style = ComputedStyle::compute(&stylesheet, &["base".to_string()]);
+        assert!(matches!(
+            style.get(|r| matches!(r, StyleRule::FontSize(_))),
+            Some(StyleRule::FontSize(Length::Pixels(14.0)))
+        ));
+    }
+
+    #[test]
+    fn test_compute_with_context_media_rule_applies_when_matching() {
+        use crate::stylesheet::media_rule::MediaRule;
+
+        let stylesheet = Stylesheet::new(vec![StylesheetClass::new(
+            "responsive",
+            vec![StyleRule::FontSize(Length::Pixels(14.0))],
+        )
+        .with_media(vec![MediaRule::new(vec![StyleRule::FontSize(
+            Length::Pixels(28.0),
+        )])
+        .min_width(600.0)])]);
+
+        let narrow = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["responsive".to_string()],
+            Some(Viewport {
+                width: 400.0,
+                height: 800.0,
+            }),
+            PseudoState::default(),
+        );
+        assert!(matches!(
+            narrow.get(|r| matches!(r, StyleRule::FontSize(_))),
+            Some(StyleRule::FontSize(Length::Pixels(14.0)))
+        ));
+
+        let wide = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["responsive".to_string()],
+            Some(Viewport {
+                width: 800.0,
+                height: 800.0,
+            }),
+            PseudoState::default(),
+        );
+        assert!(matches!(
+            wide.get(|r| matches!(r, StyleRule::FontSize(_))),
+            Some(StyleRule::FontSize(Length::Pixels(28.0)))
+        ));
+    }
+
+    #[test]
+    fn test_compute_with_context_layering_order() {
+        use crate::stylesheet::media_rule::MediaRule;
+
+        // base < media < hover < focus: each later-applicable layer should
+        // win over the earlier ones for the same rule kind.
+        let stylesheet = Stylesheet::new(vec![StylesheetClass::new(
+            "layered",
+            vec![StyleRule::TextColour(Colour::RGBA(0.0, 0.0, 0.0, 1.0))],
+        )
+        .with_media(vec![MediaRule::new(vec![StyleRule::TextColour(
+            Colour::RGBA(0.1, 0.0, 0.0, 1.0),
+        )])
+        .min_width(0.0)])
+        .with_hover(vec![StyleRule::TextColour(Colour::RGBA(
+            0.2, 0.0, 0.0, 1.0,
+        ))])
+        .with_focus(vec![StyleRule::TextColour(Colour::RGBA(
+            0.3, 0.0, 0.0, 1.0,
+        ))])]);
+
+        let viewport = Some(Viewport {
+            width: 800.0,
+            height: 600.0,
+        });
+
+        let base_only = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["layered".to_string()],
+            None,
+            PseudoState::default(),
+        );
+        assert!(matches!(
+            base_only.get(|r| matches!(r, StyleRule::TextColour(_))),
+            Some(StyleRule::TextColour(Colour::RGBA(c, ..))) if *c == 0.0
+        ));
+
+        let media_only = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["layered".to_string()],
+            viewport,
+            PseudoState::default(),
+        );
+        assert!(matches!(
+            media_only.get(|r| matches!(r, StyleRule::TextColour(_))),
+            Some(StyleRule::TextColour(Colour::RGBA(c, ..))) if *c == 0.1
+        ));
+
+        let hovered = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["layered".to_string()],
+            viewport,
+            PseudoState {
+                hovered: true,
+                focused: false,
+            },
+        );
+        assert!(matches!(
+            hovered.get(|r| matches!(r, StyleRule::TextColour(_))),
+            Some(StyleRule::TextColour(Colour::RGBA(c, ..))) if *c == 0.2
+        ));
+
+        let focused = ComputedStyle::compute_with_context(
+            &stylesheet,
+            &["layered".to_string()],
+            viewport,
+            PseudoState {
+                hovered: true,
+                focused: true,
+            },
+        );
+        assert!(matches!(
+            focused.get(|r| matches!(r, StyleRule::TextColour(_))),
+            Some(StyleRule::TextColour(Colour::RGBA(c, ..))) if *c == 0.3
+        ));
     }
 }

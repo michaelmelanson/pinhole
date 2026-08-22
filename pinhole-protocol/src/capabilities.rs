@@ -22,6 +22,12 @@ impl Capability {
     /// Per-key state version numbers on storage/Store messages, for
     /// optimistic concurrency and stale-write detection
     pub const STATE_VERSIONING: &'static str = "pinhole:state:versioning";
+
+    /// `StylesheetClass` hover_rules/focus_rules (`:hover`/`:focus`)
+    pub const STYLESHEET_PSEUDO_CLASSES: &'static str = "pinhole:stylesheet:pseudo-classes";
+
+    /// `StylesheetClass` media_rules (`@media`-style responsive rules)
+    pub const STYLESHEET_MEDIA_QUERIES: &'static str = "pinhole:stylesheet:media-queries";
 }
 
 impl From<&str> for Capability {
@@ -105,6 +111,8 @@ pub fn supported_capabilities() -> CapabilitySet {
     let mut caps = CapabilitySet::new();
     caps.add(Capability::CORE_V1);
     caps.add(Capability::STATE_VERSIONING);
+    caps.add(Capability::STYLESHEET_PSEUDO_CLASSES);
+    caps.add(Capability::STYLESHEET_MEDIA_QUERIES);
     caps
 }
 
@@ -142,6 +150,8 @@ mod tests {
         let caps = supported_capabilities();
         assert!(caps.contains(Capability::CORE_V1));
         assert!(caps.contains(Capability::STATE_VERSIONING));
-        assert_eq!(caps.len(), 2);
+        assert!(caps.contains(Capability::STYLESHEET_PSEUDO_CLASSES));
+        assert!(caps.contains(Capability::STYLESHEET_MEDIA_QUERIES));
+        assert_eq!(caps.len(), 4);
     }
 }

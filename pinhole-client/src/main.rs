@@ -6,7 +6,7 @@ mod stylesheet;
 mod ui_node;
 
 use futures::StreamExt;
-use iced::{widget::Container, Alignment, Length, Subscription, Task};
+use iced::{widget::Container, Alignment, Length, Size, Subscription, Task};
 
 use network::{NetworkSession, NetworkSessionEvent};
 use pinhole_protocol::{
@@ -15,7 +15,7 @@ use pinhole_protocol::{
     storage::{StateMap, StateValue},
 };
 use std::sync::Arc;
-use stylesheet::Stylesheet;
+use stylesheet::{Stylesheet, Viewport};
 use ui_node::UiNode;
 
 #[derive(Debug, Clone)]
@@ -29,6 +29,7 @@ pub enum PinholeMessage {
         value: StateValue,
         action: Option<Action>,
     },
+    WindowResized(Size),
 }
 
 struct Pinhole {
@@ -37,6 +38,9 @@ struct Pinhole {
     stylesheet: Stylesheet,
     context: UiContext,
     error_message: Option<String>,
+    // Used to evaluate `@media`-style responsive stylesheet rules. Starts at
+    // a reasonable default and is corrected by the first resize event.
+    window_size: Size,
 }
 
 #[derive(Clone)]
@@ -62,18 +66,25 @@ impl Pinhole {
                     state_map: StateMap::new(),
                 },
                 error_message: None,
+                window_size: Size::new(1024.0, 768.0),
             },
             Task::perform(async { "/".to_string() }, PinholeMessage::StartNavigation),
         )
     }
 
     fn subscription(&self) -> Subscription<PinholeMessage> {
-        Subscription::run_with(self.network_session.clone(), |network_session| {
-            network_session
-                .event_receiver()
-                .filter_map(|result| async move { result.ok() })
-        })
-        .map(PinholeMessage::NetworkSessionEvent)
+        let network_events =
+            Subscription::run_with(self.network_session.clone(), |network_session| {
+                network_session
+                    .event_receiver()
+                    .filter_map(|result| async move { result.ok() })
+            })
+            .map(PinholeMessage::NetworkSessionEvent);
+
+        let resize_events =
+            iced::window::resize_events().map(|(_id, size)| PinholeMessage::WindowResized(size));
+
+        Subscription::batch([network_events, resize_events])
     }
 
     fn update(&mut self, message: PinholeMessage) -> iced::Task<PinholeMessage> {
@@ -132,6 +143,10 @@ impl Pinhole {
                     );
                 }
             }
+            PinholeMessage::WindowResized(size) => {
+                tracing::debug!(width = size.width, height = size.height, "Window resized");
+                self.window_size = size;
+            }
         }
 
         command
@@ -140,17 +155,22 @@ impl Pinhole {
     fn view(&self) -> iced::Element<'_, PinholeMessage> {
         use iced::widget::{column, text};
 
+        let viewport = Some(Viewport {
+            width: self.window_size.width,
+            height: self.window_size.height,
+        });
+
         let content = if let Some(error) = &self.error_message {
             column![
                 text(error).size(16).color([1.0, 0.0, 0.0]),
                 self.document_node
-                    .view(&self.stylesheet, &self.context.state_map),
+                    .view(&self.stylesheet, &self.context.state_map, viewport),
             ]
             .spacing(10)
             .into()
         } else {
             self.document_node
-                .view(&self.stylesheet, &self.context.state_map)
+                .view(&self.stylesheet, &self.context.state_map, viewport)
         };
 
         Container::new(content)

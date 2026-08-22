@@ -54,22 +54,35 @@ Architectural improvements identified in October 2025 assessment.
     `pinhole-client/src/storage.rs`, `network.rs`,
     `pinhole-framework/src/context.rs`, `lib.rs`
 
-- [ ] **Documentation**
-  - Add module-level docs to all public modules
-  - Add doc comments to all public APIs
-  - Create architecture decision records (ADRs)
-  - Write deployment guide and security considerations
-
 ## Priority 2 - Nice to Have
 
-- [ ] **Stylesheet Completeness**
-  - Add flexbox properties (justify-content, align-items, flex-grow)
-  - Add pseudo-class support (`:hover`, `:focus`)
-  - Add responsive rules (`@media`)
-  - Location: `pinhole-protocol/src/stylesheet.rs`
+- [x] **Stylesheet Completeness**
+  - Added `AlignItems` (cross-axis child alignment within a Row/Column,
+    via iced's `align_x`/`align_y`) and `FlexGrow` (per-child proportional
+    growth, via `Length::FillPortion`, resolved from the child's own
+    classes when a Container assembles its children)
+  - `justify-content` deliberately not added as a separate rule —
+    `AlignChildrenX`/`AlignChildrenY` already fill that role (positioning
+    the Row/Column block within its parent Container); iced has no native
+    `space-between`-style distribution to add beyond that
+  - Added `:hover`/`:focus` support: `StylesheetClass` gains
+    `hover_rules`/`focus_rules`, layered on top of base rules when a
+    `Button`/`TextInput`'s iced `Status` indicates that state (computed
+    inside their style closures now, not just once outside)
+  - Added `@media`-style responsive rules: `StylesheetClass.media_rules`
+    (min/max width/height), evaluated against the client's actual window
+    size, plumbed from a new `iced::window::resize_events()` subscription
+    in `pinhole-client/src/main.rs` down through `UiNode::view()`
+  - `ComputedStyle::compute()` is unchanged (base rules only);
+    `compute_with_context()` is the new richer entry point layering
+    base < media < hover < focus
+  - Location: `pinhole-protocol/src/stylesheet/*.rs`,
+    `pinhole-client/src/stylesheet.rs` + `stylesheet/*.rs`,
+    `pinhole-client/src/ui_node.rs`, `main.rs`
 
 - [ ] **Build and Deployment Tooling**
   - Add `Dockerfile` for reproducible builds
+  - Add Nix binary targets
   - Add GitHub Actions workflow
   - Add health check route (`/health`)
   - Add graceful shutdown handling
@@ -87,6 +100,12 @@ Architectural improvements identified in October 2025 assessment.
   - Add benchmarks to track regressions
 
 ## Priority 3 - Future
+
+- [ ] **Documentation**
+  - Add module-level docs to all public modules
+  - Add doc comments to all public APIs
+  - Create architecture decision records (ADRs)
+  - Write deployment guide and security considerations
 
 - [ ] **Incremental Rendering** _(currently an anti-plan)_
   - Add patch messages for partial updates

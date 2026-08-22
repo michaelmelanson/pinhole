@@ -1,16 +1,26 @@
-use pinhole_protocol::stylesheet::{ComputedStyle, StyleRule};
+use pinhole_protocol::stylesheet::{ComputedStyle, PseudoState, StyleRule};
 
 use crate::stylesheet::{convert_alignment, convert_colour};
 
-use super::{convert_length, convert_size, Styleable, Stylesheet};
+use super::{convert_length, convert_size, Styleable, Stylesheet, Viewport};
 
 impl<'a, M, T, R> Styleable for iced::widget::Row<'a, M, T, R>
 where
     T: Clone,
     R: iced::advanced::Renderer,
 {
-    fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &'_ [String]) -> Self {
-        let computed = ComputedStyle::compute(&stylesheet.0, classes);
+    fn apply_stylesheet(
+        self,
+        stylesheet: &Stylesheet,
+        classes: &'_ [String],
+        viewport: Option<Viewport>,
+    ) -> Self {
+        let computed = ComputedStyle::compute_with_context(
+            &stylesheet.0,
+            classes,
+            viewport,
+            PseudoState::default(),
+        );
 
         let spacing = computed
             .extract(|r| match r {
@@ -19,7 +29,15 @@ where
             })
             .unwrap_or(0.0);
 
-        self.spacing(spacing)
+        // Cross-axis (vertical, for a horizontal Row) alignment of children.
+        let align_y = computed
+            .extract(|r| match r {
+                StyleRule::AlignItems(align) => Some(convert_alignment(*align)),
+                _ => None,
+            })
+            .unwrap_or(iced::Alignment::Start);
+
+        self.spacing(spacing).align_y(align_y)
     }
 }
 
@@ -28,8 +46,18 @@ where
     T: Clone,
     R: iced::advanced::Renderer,
 {
-    fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &'_ [String]) -> Self {
-        let computed = ComputedStyle::compute(&stylesheet.0, classes);
+    fn apply_stylesheet(
+        self,
+        stylesheet: &Stylesheet,
+        classes: &'_ [String],
+        viewport: Option<Viewport>,
+    ) -> Self {
+        let computed = ComputedStyle::compute_with_context(
+            &stylesheet.0,
+            classes,
+            viewport,
+            PseudoState::default(),
+        );
 
         let spacing = computed
             .extract(|r| match r {
@@ -38,7 +66,15 @@ where
             })
             .unwrap_or(0.0);
 
-        self.spacing(spacing)
+        // Cross-axis (horizontal, for a vertical Column) alignment of children.
+        let align_x = computed
+            .extract(|r| match r {
+                StyleRule::AlignItems(align) => Some(convert_alignment(*align)),
+                _ => None,
+            })
+            .unwrap_or(iced::Alignment::Start);
+
+        self.spacing(spacing).align_x(align_x)
     }
 }
 
@@ -49,8 +85,18 @@ where
     <T as iced::widget::container::Catalog>::Class<'static>:
         From<Box<dyn for<'b> std::ops::Fn(&'b T) -> iced::widget::container::Style>>,
 {
-    fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &'_ [String]) -> Self {
-        let computed = ComputedStyle::compute(&stylesheet.0, classes);
+    fn apply_stylesheet(
+        self,
+        stylesheet: &Stylesheet,
+        classes: &'_ [String],
+        viewport: Option<Viewport>,
+    ) -> Self {
+        let computed = ComputedStyle::compute_with_context(
+            &stylesheet.0,
+            classes,
+            viewport,
+            PseudoState::default(),
+        );
 
         let align_x = computed
             .extract(|r| match r {

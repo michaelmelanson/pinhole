@@ -6,6 +6,8 @@ mod text_input;
 use iced::advanced::text::Renderer;
 use pinhole_protocol::{layout::Size, stylesheet};
 
+pub use stylesheet::Viewport;
+
 #[derive(Default, Debug)]
 pub struct Stylesheet(pub stylesheet::Stylesheet);
 
@@ -16,13 +18,23 @@ impl From<stylesheet::Stylesheet> for Stylesheet {
 }
 
 pub trait Styleable {
-    fn apply_stylesheet(self, stylesheet: &Stylesheet, classes: &[String]) -> Self;
+    fn apply_stylesheet(
+        self,
+        stylesheet: &Stylesheet,
+        classes: &[String],
+        viewport: Option<Viewport>,
+    ) -> Self;
 }
 
 impl<M, T: iced::widget::checkbox::Catalog, R: Renderer> Styleable
     for iced::widget::Checkbox<'_, M, T, R>
 {
-    fn apply_stylesheet(self, _stylesheet: &Stylesheet, _classes: &[String]) -> Self {
+    fn apply_stylesheet(
+        self,
+        _stylesheet: &Stylesheet,
+        _classes: &[String],
+        _viewport: Option<Viewport>,
+    ) -> Self {
         self
     }
 }
