@@ -1,10 +1,11 @@
 use futures::{select, FutureExt};
+use rustls_pki_types::ServerName;
 use tokio::{
     net::TcpStream,
     sync::broadcast::{channel as broadcast_channel, Sender as BroadcastSender},
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 };
-use tokio_native_tls::TlsStream;
+use tokio_rustls::client::TlsStream;
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::error::NetworkError;
@@ -134,11 +135,15 @@ async fn session_loop(
                         .next()
                         .ok_or_else(|| NetworkError::InvalidAddress(address.clone()))?;
 
+                    let server_name = ServerName::try_from(hostname.to_string()).map_err(|e| {
+                        NetworkError::InvalidAddress(format!("{}: {}", hostname, e))
+                    })?;
+
                     // TLS handshake failures are usually configuration errors
                     // (bad certs, protocol mismatch, etc.) that won't fix themselves
                     let tls_stream =
                         connector
-                            .connect(hostname, tcp_stream)
+                            .connect(server_name, tcp_stream)
                             .await
                             .map_err(|err| {
                                 tracing::error!(error = %err, "TLS handshake failed");

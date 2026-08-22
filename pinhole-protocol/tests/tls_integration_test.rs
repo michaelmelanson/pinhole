@@ -44,7 +44,7 @@ fn test_server_config_missing_cert_file() {
 
     assert!(result.is_err(), "Should fail with missing cert file");
 
-    let err = result.unwrap_err();
+    let err = result.err().unwrap();
     assert!(
         matches!(err, TlsConfigError::CertificateReadError { .. }),
         "Should be CertificateReadError, got: {:?}",
@@ -79,7 +79,7 @@ fn test_server_config_missing_key_file() {
     let result = config.build_acceptor();
     assert!(result.is_err(), "Should fail with missing key file");
 
-    let err = result.unwrap_err();
+    let err = result.err().unwrap();
     assert!(
         matches!(err, TlsConfigError::KeyReadError { .. }),
         "Should be KeyReadError, got: {:?}",
@@ -101,7 +101,7 @@ fn test_client_config_missing_ca_file() {
 
     assert!(result.is_err(), "Should fail with missing CA cert file");
 
-    let err = result.unwrap_err();
+    let err = result.err().unwrap();
     assert!(
         matches!(err, TlsConfigError::CaCertificateReadError { .. }),
         "Should be CaCertificateReadError, got: {:?}",

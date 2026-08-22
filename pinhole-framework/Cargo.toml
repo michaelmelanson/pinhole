@@ -12,7 +12,7 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 async-trait.workspace = true
-tokio-native-tls.workspace = true
+tokio-rustls.workspace = true
 
 [dev-dependencies]
 serde_cbor.workspace = true

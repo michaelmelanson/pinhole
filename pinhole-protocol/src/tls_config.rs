@@ -1,9 +1,12 @@
 use std::fmt;
 use std::fs;
-use tokio_native_tls::{
-    native_tls::{Certificate, Identity},
-    TlsAcceptor, TlsConnector,
-};
+use std::io::Cursor;
+use std::sync::Arc;
+
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, ServerConfig, SignatureScheme};
+use tokio_rustls::{TlsAcceptor, TlsConnector};
 
 /// TLS configuration errors
 #[derive(Debug)]
@@ -73,6 +76,24 @@ impl std::error::Error for TlsConfigError {
 
 type Result<T> = std::result::Result<T, TlsConfigError>;
 
+fn load_certs(pem_bytes: &[u8]) -> std::result::Result<Vec<CertificateDer<'static>>, String> {
+    rustls_pemfile::certs(&mut Cursor::new(pem_bytes))
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+/// rustls 0.23's multi-provider `CryptoProvider` architecture requires a
+/// process-wide default to be installed before building any config, or it
+/// panics at runtime. Installed once, lazily, the first time either side of
+/// this module is used.
+static CRYPTO_PROVIDER_INIT: std::sync::Once = std::sync::Once::new();
+
+fn ensure_crypto_provider_installed() {
+    CRYPTO_PROVIDER_INIT.call_once(|| {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    });
+}
+
 /// Server-side TLS configuration
 #[derive(Clone)]
 pub struct ServerTlsConfig {
@@ -93,30 +114,73 @@ impl ServerTlsConfig {
 
     /// Load the certificate and key from disk and create a TlsAcceptor
     pub fn build_acceptor(&self) -> Result<TlsAcceptor> {
-        let cert_pem = fs::read_to_string(&self.cert_path).map_err(|e| {
-            TlsConfigError::CertificateReadError {
-                path: self.cert_path.clone(),
-                source: e,
-            }
-        })?;
+        ensure_crypto_provider_installed();
 
-        let key_pem =
-            fs::read_to_string(&self.key_path).map_err(|e| TlsConfigError::KeyReadError {
-                path: self.key_path.clone(),
+        let cert_pem =
+            fs::read(&self.cert_path).map_err(|e| TlsConfigError::CertificateReadError {
+                path: self.cert_path.clone(),
                 source: e,
             })?;
 
-        // Parse certificate and key into identity
-        let identity = Identity::from_pkcs8(cert_pem.as_bytes(), key_pem.as_bytes())
-            .map_err(|e| TlsConfigError::IdentityParseError(e.to_string()))?;
+        let key_pem = fs::read(&self.key_path).map_err(|e| TlsConfigError::KeyReadError {
+            path: self.key_path.clone(),
+            source: e,
+        })?;
 
-        let acceptor = TlsAcceptor::from(
-            native_tls::TlsAcceptor::builder(identity)
-                .build()
-                .map_err(|e| TlsConfigError::AcceptorBuildError(e.to_string()))?,
-        );
+        let certs = load_certs(&cert_pem).map_err(TlsConfigError::IdentityParseError)?;
 
-        Ok(acceptor)
+        let key = rustls_pemfile::private_key(&mut Cursor::new(&key_pem))
+            .map_err(|e| TlsConfigError::IdentityParseError(e.to_string()))?
+            .ok_or_else(|| {
+                TlsConfigError::IdentityParseError("no private key found in key file".to_string())
+            })?;
+
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(certs, key)
+            .map_err(|e| TlsConfigError::AcceptorBuildError(e.to_string()))?;
+
+        Ok(TlsAcceptor::from(Arc::new(config)))
+    }
+}
+
+/// Verifies nothing — used only for `ClientTlsConfig::new_danger_accept_invalid_certs()`,
+/// for connecting to servers using self-signed development certificates.
+#[derive(Debug)]
+struct NoCertificateVerification(Arc<rustls::crypto::CryptoProvider>);
+
+impl ServerCertVerifier for NoCertificateVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> std::result::Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &CertificateDer<'_>,
+        _dss: &DigitallySignedStruct,
+    ) -> std::result::Result<HandshakeSignatureValid, rustls::Error> {
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
     }
 }
 
@@ -154,33 +218,72 @@ impl ClientTlsConfig {
 
     /// Build a TlsConnector from this configuration
     pub fn build_connector(&self) -> Result<TlsConnector> {
-        let mut builder = native_tls::TlsConnector::builder();
+        ensure_crypto_provider_installed();
 
-        if self.accept_invalid_certs {
+        let builder = ClientConfig::builder();
+
+        let config = if self.accept_invalid_certs {
             builder
-                .danger_accept_invalid_certs(true)
-                .danger_accept_invalid_hostnames(true);
-        }
-
-        if let Some(ca_cert_path) = &self.ca_cert_path {
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(NoCertificateVerification(
+                    rustls::crypto::CryptoProvider::get_default()
+                        .expect("installed by ensure_crypto_provider_installed above")
+                        .clone(),
+                )))
+                .with_no_client_auth()
+        } else if let Some(ca_cert_path) = &self.ca_cert_path {
             let ca_cert_pem =
                 fs::read(ca_cert_path).map_err(|e| TlsConfigError::CaCertificateReadError {
                     path: ca_cert_path.clone(),
                     source: e,
                 })?;
 
-            let ca_cert = Certificate::from_pem(&ca_cert_pem)
-                .map_err(|e| TlsConfigError::CaCertificateParseError(e.to_string()))?;
+            let ca_certs =
+                load_certs(&ca_cert_pem).map_err(TlsConfigError::CaCertificateParseError)?;
 
-            builder.add_root_certificate(ca_cert);
-        }
+            let mut root_store = RootCertStore::empty();
+            for cert in ca_certs {
+                root_store
+                    .add(cert)
+                    .map_err(|e| TlsConfigError::CaCertificateParseError(e.to_string()))?;
+            }
 
-        let native_connector = builder
-            .build()
-            .map_err(|e| TlsConfigError::AcceptorBuildError(e.to_string()))?;
-        let connector = TlsConnector::from(native_connector);
+            builder
+                .with_root_certificates(root_store)
+                .with_no_client_auth()
+        } else {
+            let mut root_store = RootCertStore::empty();
+            let native_certs = rustls_native_certs::load_native_certs();
 
-        Ok(connector)
+            for error in &native_certs.errors {
+                tracing::warn!(%error, "Error reading a native certificate source");
+            }
+
+            let mut rejected = 0usize;
+            for cert in native_certs.certs {
+                if root_store.add(cert).is_err() {
+                    rejected += 1;
+                }
+            }
+            if rejected > 0 {
+                tracing::warn!(
+                    rejected,
+                    trusted = root_store.len(),
+                    "Platform trust store rejected some certificates"
+                );
+            }
+            if root_store.is_empty() {
+                return Err(TlsConfigError::CaCertificateParseError(
+                    "no usable certificates found in the platform trust store".to_string(),
+                ));
+            }
+
+            builder
+                .with_root_certificates(root_store)
+                .with_no_client_auth()
+        };
+
+        Ok(TlsConnector::from(Arc::new(config)))
     }
 }
 

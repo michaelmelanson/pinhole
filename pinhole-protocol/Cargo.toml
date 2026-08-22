@@ -10,8 +10,12 @@ edition = "2021"
 serde.workspace = true
 tokio.workspace = true
 serde_cbor.workspace = true
-tokio-native-tls.workspace = true
-native-tls.workspace = true
+tracing.workspace = true
+tokio-rustls.workspace = true
+rustls.workspace = true
+rustls-pemfile.workspace = true
+rustls-native-certs.workspace = true
+rustls-pki-types.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true

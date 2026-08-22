@@ -6,7 +6,7 @@ mod router;
 
 use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
-use tokio_native_tls::TlsStream;
+use tokio_rustls::server::TlsStream;
 
 use pinhole_protocol::{
     messages::{ClientToServerMessage, ErrorCode},

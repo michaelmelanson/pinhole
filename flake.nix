@@ -46,7 +46,7 @@
           cargoLock.lockFile = ./Cargo.lock;
 
           nativeBuildInputs = with pkgs; [ pkg-config ];
-          buildInputs = with pkgs; [ openssl ] ++ runtimeLibs ++ darwinFrameworks;
+          buildInputs = runtimeLibs ++ darwinFrameworks;
 
           # Integration tests need TLS certs and open sockets/windows; the
           # existing CI job runs `cargo test` directly instead.
@@ -66,7 +66,9 @@
         };
 
         # Extract a single binary from the shared workspace build.
-        mkBinPackage = name: pkgs.runCommand name { } ''
+        # pname/version (not just name) are set because `nix bundle`'s
+        # default bundler requires them.
+        mkBinPackage = name: pkgs.runCommand name { pname = name; version = "0.1.0"; } ''
           mkdir -p $out/bin
           ln -s ${workspace}/bin/${name} $out/bin/${name}
         '';
@@ -77,6 +79,8 @@
         # environment.
         pinhole-client-linux = pkgs.symlinkJoin {
           name = "pinhole-client";
+          pname = "pinhole-client";
+          version = "0.1.0";
           paths = [ (mkBinPackage "pinhole-client") ];
           buildInputs = [ pkgs.makeWrapper ];
           postBuild = ''
@@ -155,8 +159,6 @@
             rustfmt
             clippy
             rust-analyzer
-
-            openssl
 
             cargo-watch
             cargo-outdated
