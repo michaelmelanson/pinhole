@@ -1,6 +1,12 @@
 /target
 .DS_Store
 
+# nix build output symlinks
+# Use `nix build -o .nix-build/<name> .#<name>` to keep these out of the repo root.
+/result
+/result-*
+/.nix-build/
+
 # TLS certificates (don't commit private keys or development certificates)
 *.pem
 *.key

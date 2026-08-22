@@ -3,8 +3,7 @@ mod common;
 
 use async_trait::async_trait;
 use common::{
-    connect_test_client, receive_message, send_action, send_action_with_versions,
-    start_test_server,
+    connect_test_client, receive_message, send_action, send_action_with_versions, start_test_server,
 };
 use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
 use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};

@@ -75,9 +75,7 @@ impl fmt::Display for ErrorCode {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum ClientToServerMessage {
     /// Handshake message sent by client after connection
-    ClientHello {
-        capabilities: CapabilitySet,
-    },
+    ClientHello { capabilities: CapabilitySet },
     /// Ask the server to report its health. Usable at any time, independent
     /// of capability negotiation — a connection-level concern, not a page.
     HealthCheck,

@@ -102,10 +102,65 @@ Architectural improvements identified in October 2025 assessment.
     connection and exited cleanly only after it closed
   - Location: `pinhole-framework/src/lib.rs`
 
+- [x] **Nix Packaging**
+  - Added `packages.<system>.*` flake outputs for all three binaries
+    (`pinhole-client`, `pinhole-todomvc-example`,
+    `pinhole-styling-showcase-example`), built once as a shared workspace
+    derivation and extracted per-binary to avoid rebuilding shared deps
+  - `pinhole-client` (GUI) is wrapped with its Vulkan/Wayland/X11
+    `LD_LIBRARY_PATH` on Linux so it runs standalone outside the devShell;
+    on macOS it's built as a proper `Pinhole.app` bundle instead (using the
+    `apple-sdk` package, since per-framework `darwin.apple_sdk.frameworks.*`
+    packages have been removed from nixpkgs) — **still unverified on real
+    macOS hardware**; the new `build-macos` CI job (below) is meant to
+    close that gap once its prerequisite Namespace setup is done
+  - `x86_64-darwin` dropped from supported systems — the pinned nixpkgs
+    channel no longer supports it
+  - Verified live on Linux: all three packages build and run (including a
+    full SIGTERM graceful-shutdown cycle on the packaged server binary)
+  - Location: `flake.nix`
+
+- [x] **GitHub Actions CI**
+  - `.github/workflows/ci.yml`: four jobs, all via `nix develop --command
+    cargo ...` / `nix build` so CI uses the exact same dependency set as
+    local dev (no separate apt package list to drift out of sync):
+    - `check` / `build`: fmt-check + build + test + clippy, and `nix
+      build` of all three packages, on `namespace-profile-default`
+    - `check-macos` / `build-macos`: same split, on
+      `namespace-profile-macos` — `build-macos` is what actually exercises
+      the `pinhole-client` `.app` bundle on real Apple hardware
+  - Both Namespace profiles require one-time manual setup only the repo
+    owner can do: connect the GitHub org at
+    https://cloud.namespace.so/workspace/ghrunners and create runner
+    profiles named exactly `default` and `macos` there (profile OS/arch is
+    set in Namespace's dashboard, not from the workflow)
+  - Fixed 3 pre-existing files whose committed formatting disagreed with
+    the current nixpkgs rustfmt pin, since otherwise the new fmt-check step
+    would fail immediately for reasons unrelated to any real change
+  - Verified structurally with `actionlint` (zero findings, with
+    `.github/actionlint.yaml` allow-listing the two custom labels) and by
+    running `check`/`build` locally end-to-end with `act`, which surfaced
+    two environment-specific false positives rather than real problems:
+    `test_readonly_filesystem` failed because `act`'s default image runs
+    as root (confirmed via `docker run ... id` → `uid=0`), and root
+    ignores the read-only permission bits the test relies on; separately,
+    `nix build` compiled and packaged every binary successfully but then
+    failed Nix's own sandbox purity check (`/homeless-shelter`), which is
+    a known limitation of running Nix's sandbox (needs Linux user
+    namespaces) inside `act`'s restricted container — confirmed directly
+    via `unshare --user` failing in the same container even with
+    `--cap-add=SYS_ADMIN`. Real GitHub-hosted/Namespace runners use a
+    non-root user and full VM-level namespace support, so neither should
+    reproduce there. Stronger evidence the packaging itself is correct:
+    genuine (non-containerized) `nix build` of all three packages on this
+    machine succeeded and the binaries ran correctly
+  - `check-macos`/`build-macos` are not runnable via `act` at all (no
+    macOS runner support), so their first real confirmation will be an
+    actual push once the Namespace `macos` profile is in place
+  - Location: `.github/workflows/ci.yml`, `.github/actionlint.yaml`
+
 - [ ] **Build and Deployment Tooling**
   - Add `Dockerfile` for reproducible builds
-  - Add Nix binary targets
-  - Add GitHub Actions workflow
 
 - [ ] **Improved client**
   - Application selector, based on list of known applications.

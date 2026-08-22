@@ -425,14 +425,20 @@ mod tests {
 
         // First Store reply: done=true at version 1.
         manager.apply_remote_store(StorageScope::Session, "done".to_string(), true.into(), 1)?;
-        assert!(manager.get(StorageScope::Session, "done").unwrap().boolean());
+        assert!(manager
+            .get(StorageScope::Session, "done")
+            .unwrap()
+            .boolean());
 
         // Second Store reply racing the first: computed from the same
         // stale pre-image, so it also claims version 1. Must be dropped,
         // not applied.
         manager.apply_remote_store(StorageScope::Session, "done".to_string(), false.into(), 1)?;
         assert!(
-            manager.get(StorageScope::Session, "done").unwrap().boolean(),
+            manager
+                .get(StorageScope::Session, "done")
+                .unwrap()
+                .boolean(),
             "stale write with a non-newer version must not overwrite the current value"
         );
 
@@ -447,7 +453,10 @@ mod tests {
         manager.apply_remote_store(StorageScope::Session, "done".to_string(), true.into(), 1)?;
         manager.apply_remote_store(StorageScope::Session, "done".to_string(), false.into(), 2)?;
 
-        assert!(!manager.get(StorageScope::Session, "done").unwrap().boolean());
+        assert!(!manager
+            .get(StorageScope::Session, "done")
+            .unwrap()
+            .boolean());
 
         Ok(())
     }
