@@ -62,7 +62,7 @@ async fn test_message_too_large() {
     // Spawn server task
     let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
-        pinhole::handle_connection(app, &mut stream).await
+        pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await
     });
 
     // Send a message claiming to be 11MB (exceeds MAX_MESSAGE_SIZE of 10MB)
@@ -95,7 +95,7 @@ async fn test_invalid_cbor_data() {
     // Spawn server task
     let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
-        pinhole::handle_connection(app, &mut stream).await
+        pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await
     });
 
     // Send valid length but invalid CBOR data
@@ -131,7 +131,7 @@ async fn test_truncated_message() {
     // Spawn server task
     let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
-        pinhole::handle_connection(app, &mut stream).await
+        pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await
     });
 
     // Send a message claiming to be 100 bytes but only send 10
@@ -174,7 +174,7 @@ async fn test_zero_length_message() {
     // Spawn server task
     tokio::spawn(async move {
         let mut stream = server_stream;
-        let _ = pinhole::handle_connection(app, &mut stream).await;
+        let _ = pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await;
     });
 
     // Send a zero-length message (valid according to protocol - means empty/close)
@@ -202,7 +202,7 @@ async fn test_wrong_message_structure() {
     // Spawn server task
     let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
-        pinhole::handle_connection(app, &mut stream).await
+        pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await
     });
 
     // Send valid CBOR but wrong structure (e.g., a simple string instead of ClientToServerMessage)
@@ -239,7 +239,7 @@ async fn test_partial_length_header() {
     // Spawn server task
     let server_handle = tokio::spawn(async move {
         let mut stream = server_stream;
-        pinhole::handle_connection(app, &mut stream).await
+        pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await
     });
 
     // Send only 2 bytes of the 4-byte length header
@@ -263,7 +263,7 @@ async fn test_message_at_exact_size_limit() {
     // Spawn server task
     tokio::spawn(async move {
         let mut stream = server_stream;
-        let _ = pinhole::handle_connection(app, &mut stream).await;
+        let _ = pinhole::handle_connection(app, &mut stream, &pinhole::ServerHealth::new()).await;
     });
 
     // Create a valid message

@@ -238,6 +238,11 @@ async fn session_loop(
                       );
                       // Capability negotiation successful, continue normal operation
                     }
+                    ServerToClientMessage::HealthCheckResult { healthy } => {
+                      // The client doesn't send HealthCheck requests itself; this
+                      // only arrives if something else on the connection does.
+                      tracing::debug!(healthy, "Received health check result");
+                    }
                     ServerToClientMessage::Render { document } => {
                       if let Err(e) = event_sender.send(NetworkSessionEvent::DocumentUpdated(document)) {
                         tracing::error!(error = ?e, "UI thread closed, shutting down");

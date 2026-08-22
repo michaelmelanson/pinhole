@@ -80,12 +80,37 @@ Architectural improvements identified in October 2025 assessment.
     `pinhole-client/src/stylesheet.rs` + `stylesheet/*.rs`,
     `pinhole-client/src/ui_node.rs`, `main.rs`
 
+- [x] **Health Check Protocol**
+  - Made part of the protocol itself rather than an out-of-band HTTP
+    prober, since every connection already requires a full TLS handshake
+    anyway: `ClientToServerMessage::HealthCheck` /
+    `ServerToClientMessage::HealthCheckResult { healthy: bool }`, usable at
+    any time (not gated on capability negotiation)
+  - `healthy` reflects a new `ServerHealth` (shared `Arc<AtomicBool>`), so
+    a client polling on an already-open connection learns the server is
+    draining before it actually exits
+  - Location: `pinhole-protocol/src/messages.rs`, `capabilities.rs`,
+    `pinhole-framework/src/health.rs` (new)
+
+- [x] **Graceful Shutdown**
+  - `accept_loop` now `select!`s between `listener.accept()` and a
+    `SIGINT`/`SIGTERM` future; on signal it stops accepting, marks
+    `ServerHealth` draining, and awaits in-flight connections (tracked via
+    `tokio::task::JoinSet`) up to `GRACEFUL_SHUTDOWN_TIMEOUT` (30s) before
+    aborting stragglers
+  - Verified live: SIGTERM to a running server correctly drained an open
+    connection and exited cleanly only after it closed
+  - Location: `pinhole-framework/src/lib.rs`
+
 - [ ] **Build and Deployment Tooling**
   - Add `Dockerfile` for reproducible builds
   - Add Nix binary targets
   - Add GitHub Actions workflow
-  - Add health check route (`/health`)
-  - Add graceful shutdown handling
+
+- [ ] **Improved client**
+  - Application selector, based on list of known applications.
+  - Flow for adding applications
+  - Health check pip
 
 - [ ] **Testing Gaps**
   - Add `proptest` for fuzzing message serialisation

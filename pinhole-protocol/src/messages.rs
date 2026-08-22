@@ -78,6 +78,9 @@ pub enum ClientToServerMessage {
     ClientHello {
         capabilities: CapabilitySet,
     },
+    /// Ask the server to report its health. Usable at any time, independent
+    /// of capability negotiation — a connection-level concern, not a page.
+    HealthCheck,
     Load {
         path: String,
         storage: StateMap,
@@ -100,6 +103,13 @@ pub enum ServerToClientMessage {
     /// Handshake response from server with negotiated capabilities
     ServerHello {
         capabilities: CapabilitySet,
+    },
+    /// Response to `HealthCheck`. `healthy` is false once the server has
+    /// started graceful shutdown and stopped accepting new connections, so
+    /// a client polling on an already-open connection can learn to stop
+    /// routing new traffic before the process actually exits.
+    HealthCheckResult {
+        healthy: bool,
     },
     Render {
         document: Document,

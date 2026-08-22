@@ -1,9 +1,10 @@
 mod application;
 mod context;
+mod health;
 mod route;
 mod router;
 
-use std::future::Future;
+use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_native_tls::TlsStream;
 
@@ -17,6 +18,7 @@ use pinhole_protocol::{
 
 pub use application::Application;
 pub use context::Context;
+pub use health::ServerHealth;
 pub use pinhole_protocol::{
     action::Action,
     document::Document,
@@ -47,6 +49,10 @@ impl<T> MessageStream for T where
 {
 }
 
+/// How long to wait for in-flight connections to finish after a shutdown
+/// signal before forcibly aborting them.
+const GRACEFUL_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(30);
+
 pub async fn run(
     application: impl Application + 'static,
     address: impl ToSocketAddrs,
@@ -63,6 +69,31 @@ pub async fn run(
     accept_loop(application, address, tls_config).await
 }
 
+/// Waits for a `SIGINT` (Ctrl+C) or, on Unix, `SIGTERM`.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+}
+
 async fn accept_loop(
     application: impl Application + 'static,
     addr: impl ToSocketAddrs,
@@ -70,24 +101,63 @@ async fn accept_loop(
 ) -> Result<()> {
     let listener = TcpListener::bind(addr).await?;
     let acceptor = tls_config.build_acceptor()?;
+    let health = ServerHealth::new();
+    let mut connections = tokio::task::JoinSet::new();
 
     tracing::info!("Server listening with TLS enabled");
 
     loop {
-        let (tcp_stream, peer_addr) = listener.accept().await?;
-        let acceptor = acceptor.clone();
+        tokio::select! {
+            accept_result = listener.accept() => {
+                let (tcp_stream, peer_addr) = accept_result?;
+                let acceptor = acceptor.clone();
+                let health = health.clone();
 
-        tokio::spawn(async move {
-            let tls_stream = acceptor.accept(tcp_stream).await.map_err(|e| {
-                tracing::error!(error = %e, "TLS handshake failed");
-                e
-            });
+                connections.spawn(async move {
+                    let tls_stream = acceptor.accept(tcp_stream).await.map_err(|e| {
+                        tracing::error!(error = %e, "TLS handshake failed");
+                        e
+                    });
 
-            if let Ok(stream) = tls_stream {
-                spawn_and_log_error(connection_loop(application, stream, peer_addr));
+                    if let Ok(stream) = tls_stream {
+                        if let Err(e) = connection_loop(application, stream, peer_addr, health).await {
+                            tracing::error!(error = %e, "Connection error");
+                        }
+                    }
+                });
             }
-        });
+            () = shutdown_signal() => {
+                tracing::info!("Shutdown signal received, no longer accepting new connections");
+                health.mark_draining();
+                break;
+            }
+        }
     }
+
+    let active = connections.len();
+    if active > 0 {
+        tracing::info!(
+            active_connections = active,
+            "Waiting for in-flight connections to finish"
+        );
+    }
+
+    let drained = tokio::time::timeout(GRACEFUL_SHUTDOWN_TIMEOUT, async {
+        while connections.join_next().await.is_some() {}
+    })
+    .await;
+
+    if drained.is_err() {
+        tracing::warn!(
+            remaining = connections.len(),
+            "Graceful shutdown timed out, aborting remaining connections"
+        );
+        connections.shutdown().await;
+    } else {
+        tracing::info!("Graceful shutdown complete");
+    }
+
+    Ok(())
 }
 
 /// Handle a single request and send response(s) to the stream
@@ -97,6 +167,7 @@ pub async fn handle_request(
     request: &ClientToServerMessage,
     stream: &mut impl MessageStream,
     capabilities: &CapabilitySet,
+    health: &ServerHealth,
 ) -> Result<Option<CapabilitySet>> {
     let result = match request {
         ClientToServerMessage::ClientHello {
@@ -125,6 +196,14 @@ pub async fn handle_request(
 
             // Return the new capabilities to update connection state
             return Ok(Some(negotiated_capabilities));
+        }
+
+        ClientToServerMessage::HealthCheck => {
+            let healthy = health.is_healthy();
+            tracing::debug!(healthy, "Received health check");
+            send_message_to_client(stream, ServerToClientMessage::HealthCheckResult { healthy })
+                .await
+                .map_err(|e| e.into())
         }
 
         ClientToServerMessage::Action {
@@ -231,6 +310,7 @@ pub async fn handle_request(
 pub async fn handle_connection(
     application: impl Application,
     stream: &mut impl MessageStream,
+    health: &ServerHealth,
 ) -> Result<()> {
     tracing::info!("Connection established");
 
@@ -263,7 +343,7 @@ pub async fn handle_connection(
 
         // Handle this request and update capabilities if renegotiated
         if let Some(new_capabilities) =
-            handle_request(application, &request, stream, &capabilities).await?
+            handle_request(application, &request, stream, &capabilities, health).await?
         {
             capabilities = new_capabilities;
         }
@@ -278,17 +358,7 @@ async fn connection_loop(
     application: impl Application,
     mut stream: TlsStream<TcpStream>,
     peer_addr: std::net::SocketAddr,
+    health: ServerHealth,
 ) -> Result<()> {
-    handle_connection(application, &mut stream).await
-}
-
-fn spawn_and_log_error<F>(fut: F) -> tokio::task::JoinHandle<()>
-where
-    F: Future<Output = Result<()>> + Send + 'static,
-{
-    tokio::spawn(async move {
-        if let Err(e) = fut.await {
-            tracing::error!(error = %e, "Connection error");
-        }
-    })
+    handle_connection(application, &mut stream, &health).await
 }

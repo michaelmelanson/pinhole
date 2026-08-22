@@ -158,6 +158,23 @@ fn test_client_action_message_cbor() {
 }
 
 #[test]
+fn test_client_health_check_message_cbor() {
+    let message = ClientToServerMessage::HealthCheck;
+    let expected_bytes = &[107, 72, 101, 97, 108, 116, 104, 67, 104, 101, 99, 107];
+    assert_cbor_encoding(&message, expected_bytes);
+}
+
+#[test]
+fn test_server_health_check_result_message_cbor() {
+    let message = ServerToClientMessage::HealthCheckResult { healthy: true };
+    let expected_bytes = &[
+        161, 113, 72, 101, 97, 108, 116, 104, 67, 104, 101, 99, 107, 82, 101, 115, 117, 108, 116,
+        161, 103, 104, 101, 97, 108, 116, 104, 121, 245,
+    ];
+    assert_cbor_encoding(&message, expected_bytes);
+}
+
+#[test]
 fn test_error_code_values() {
     assert_eq!(ErrorCode::BadRequest.as_u16(), 400);
     assert_eq!(ErrorCode::NotFound.as_u16(), 404);

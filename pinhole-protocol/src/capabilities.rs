@@ -28,6 +28,9 @@ impl Capability {
 
     /// `StylesheetClass` media_rules (`@media`-style responsive rules)
     pub const STYLESHEET_MEDIA_QUERIES: &'static str = "pinhole:stylesheet:media-queries";
+
+    /// `HealthCheck`/`HealthCheckResult` messages
+    pub const HEALTH_CHECK: &'static str = "pinhole:health:v1";
 }
 
 impl From<&str> for Capability {
@@ -113,6 +116,7 @@ pub fn supported_capabilities() -> CapabilitySet {
     caps.add(Capability::STATE_VERSIONING);
     caps.add(Capability::STYLESHEET_PSEUDO_CLASSES);
     caps.add(Capability::STYLESHEET_MEDIA_QUERIES);
+    caps.add(Capability::HEALTH_CHECK);
     caps
 }
 
@@ -152,6 +156,7 @@ mod tests {
         assert!(caps.contains(Capability::STATE_VERSIONING));
         assert!(caps.contains(Capability::STYLESHEET_PSEUDO_CLASSES));
         assert!(caps.contains(Capability::STYLESHEET_MEDIA_QUERIES));
-        assert_eq!(caps.len(), 4);
+        assert!(caps.contains(Capability::HEALTH_CHECK));
+        assert_eq!(caps.len(), 5);
     }
 }

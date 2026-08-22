@@ -15,7 +15,7 @@ pinhole-protocol = { path = "pinhole-protocol" }
 pinhole = { path = "pinhole-framework" }
 
 # Async runtime
-tokio = { version = "1.48", features = ["io-util", "net", "macros", "rt-multi-thread", "time", "sync"] }
+tokio = { version = "1.48", features = ["io-util", "net", "macros", "rt-multi-thread", "time", "sync", "signal"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = "0.1"
 

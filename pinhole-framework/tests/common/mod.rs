@@ -78,10 +78,12 @@ pub fn start_test_server<A: Application + 'static>(app: A) -> String {
 
     // Spawn server task
     tokio::spawn(async move {
+        let health = pinhole::ServerHealth::new();
         loop {
             if let Ok((mut stream, _)) = listener.accept().await {
+                let health = health.clone();
                 tokio::spawn(async move {
-                    let _ = pinhole::handle_connection(app, &mut stream).await;
+                    let _ = pinhole::handle_connection(app, &mut stream, &health).await;
                 });
             }
         }
