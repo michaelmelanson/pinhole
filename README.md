@@ -8,7 +8,17 @@ This is a proof of concept exploring what an application-first web platform migh
 
 ## Usage
 
-You'll need a Rust development environment. See the [Getting Started instructions](https://www.rust-lang.org/learn/get-started) on Rust website for details about setting that up.
+### Development environment
+
+If you have [Nix](https://nixos.org/) with flakes enabled, run:
+
+```
+nix develop
+```
+
+This drops you into a shell with the right Rust toolchain (rustc, cargo, clippy, rustfmt, rust-analyzer) and all the system libraries Pinhole needs to build and run, including the graphics libraries `iced` (the client's GUI library) uses and OpenSSL for TLS. It also includes `cargo-watch` and `cargo-outdated`.
+
+Without Nix, you'll need to install these yourself: a Rust toolchain (see the [Getting Started instructions](https://www.rust-lang.org/learn/get-started)), OpenSSL, and the Vulkan/Wayland/X11 development libraries `iced` depends on for rendering.
 
 ### Certificates
 
@@ -51,9 +61,9 @@ When the client connects, it will first show a login page. Entering an email and
 
 On the list page you will see a couple todo items. You can click their checkboxes and an action will be sent to the server. It doesn't currently persist the changes.
 
-### Development environment
+### Hot reloading
 
-If you install Cargo Watch with `cargo install cargo-watch`, then you can start a hot reloading server like this:
+Cargo Watch is included in the Nix dev shell; otherwise install it with `cargo install cargo-watch`. Either way, you can start a hot reloading server like this:
 
 ```
 cargo watch -x 'run --bin pinhole-todomvc-example'

@@ -1,5 +1,7 @@
 # Instructions for Claude
 
+See README.md for project overview, architecture, and how to build/run/test.
+
 ## General communication style
 - You are a Staff level developer acting as a technical lead.
 - ALWAYS use Canadian English for all code and conversations. Avoid Americanisms.
