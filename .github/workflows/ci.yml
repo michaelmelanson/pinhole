@@ -33,6 +33,7 @@ jobs:
         run: nix develop --command cargo clippy --workspace --all-targets -- -D warnings
 
   build:
+    needs: check
     runs-on: namespace-profile-default
     steps:
       - uses: actions/checkout@v4
@@ -45,14 +46,32 @@ jobs:
 
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
-      - name: nix build pinhole-client
-        run: nix build .#pinhole-client -L
+      - name: nix bundle pinhole-client
+        run: nix bundle -L .#pinhole-client -o bundle-pinhole-client
 
-      - name: nix build pinhole-todomvc-example
-        run: nix build .#pinhole-todomvc-example -L
+      - name: nix bundle pinhole-todomvc-example
+        run: nix bundle -L .#pinhole-todomvc-example -o bundle-pinhole-todomvc-example
 
-      - name: nix build pinhole-styling-showcase-example
-        run: nix build .#pinhole-styling-showcase-example -L
+      - name: nix bundle pinhole-styling-showcase-example
+        run: nix bundle -L .#pinhole-styling-showcase-example -o bundle-pinhole-styling-showcase-example
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-client-linux
+          path: bundle-pinhole-client
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-todomvc-example-linux
+          path: bundle-pinhole-todomvc-example
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-styling-showcase-example-linux
+          path: bundle-pinhole-styling-showcase-example
+          if-no-files-found: error
 
   check-macos:
     runs-on: namespace-profile-macos
@@ -73,6 +92,7 @@ jobs:
         run: nix develop --command cargo clippy --workspace --all-targets -- -D warnings
 
   build-macos:
+    needs: check-macos
     runs-on: namespace-profile-macos
     steps:
       - uses: actions/checkout@v4
@@ -82,10 +102,28 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: nix build pinhole-client
-        run: nix build .#pinhole-client -L
+        run: nix build .#pinhole-client -L -o result-pinhole-client
 
       - name: nix build pinhole-todomvc-example
-        run: nix build .#pinhole-todomvc-example -L
+        run: nix build .#pinhole-todomvc-example -L -o result-pinhole-todomvc-example
 
       - name: nix build pinhole-styling-showcase-example
-        run: nix build .#pinhole-styling-showcase-example -L
+        run: nix build .#pinhole-styling-showcase-example -L -o result-pinhole-styling-showcase-example
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-client-macos
+          path: result-pinhole-client/Applications/Pinhole.app
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-todomvc-example-macos
+          path: result-pinhole-todomvc-example/bin/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinhole-styling-showcase-example-macos
+          path: result-pinhole-styling-showcase-example/bin/*
+          if-no-files-found: error
