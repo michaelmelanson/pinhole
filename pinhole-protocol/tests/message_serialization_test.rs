@@ -1,7 +1,7 @@
 use pinhole_protocol::{
     action::Action,
     messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage},
-    storage::{StateMap, StateValue, StorageScope},
+    storage::{StateMap, StateValue, StorageScope, VersionMap},
 };
 use std::collections::HashMap;
 
@@ -100,11 +100,13 @@ fn test_server_store_message_cbor() {
         scope: StorageScope::Session,
         key: "user_id".to_string(),
         value: StateValue::String("12345".to_string()),
+        version: 1,
     };
     let expected_bytes = &[
-        161, 101, 83, 116, 111, 114, 101, 163, 101, 115, 99, 111, 112, 101, 103, 83, 101, 115, 115,
+        161, 101, 83, 116, 111, 114, 101, 164, 101, 115, 99, 111, 112, 101, 103, 83, 101, 115, 115,
         105, 111, 110, 99, 107, 101, 121, 103, 117, 115, 101, 114, 95, 105, 100, 101, 118, 97, 108,
-        117, 101, 161, 102, 83, 116, 114, 105, 110, 103, 101, 49, 50, 51, 52, 53,
+        117, 101, 161, 102, 83, 116, 114, 105, 110, 103, 101, 49, 50, 51, 52, 53, 103, 118, 101,
+        114, 115, 105, 111, 110, 1,
     ];
     assert_cbor_encoding(&message, expected_bytes);
 }
@@ -113,15 +115,19 @@ fn test_server_store_message_cbor() {
 fn test_client_load_message_cbor() {
     let mut storage = StateMap::new();
     storage.insert("key1".to_string(), StateValue::String("value1".to_string()));
+    let mut storage_versions = VersionMap::new();
+    storage_versions.insert("key1".to_string(), 1);
 
     let message = ClientToServerMessage::Load {
         path: "/test".to_string(),
         storage,
+        storage_versions,
     };
     let expected_bytes = &[
-        161, 100, 76, 111, 97, 100, 162, 100, 112, 97, 116, 104, 101, 47, 116, 101, 115, 116, 103,
+        161, 100, 76, 111, 97, 100, 163, 100, 112, 97, 116, 104, 101, 47, 116, 101, 115, 116, 103,
         115, 116, 111, 114, 97, 103, 101, 161, 100, 107, 101, 121, 49, 161, 102, 83, 116, 114, 105,
-        110, 103, 102, 118, 97, 108, 117, 101, 49,
+        110, 103, 102, 118, 97, 108, 117, 101, 49, 112, 115, 116, 111, 114, 97, 103, 101, 95, 118,
+        101, 114, 115, 105, 111, 110, 115, 161, 100, 107, 101, 121, 49, 1,
     ];
     assert_cbor_encoding(&message, expected_bytes);
 }
@@ -131,18 +137,22 @@ fn test_client_action_message_cbor() {
     let action = Action::new("submit", HashMap::new(), vec![]);
     let mut storage = StateMap::new();
     storage.insert("field".to_string(), StateValue::String("data".to_string()));
+    let mut storage_versions = VersionMap::new();
+    storage_versions.insert("field".to_string(), 3);
 
     let message = ClientToServerMessage::Action {
         path: "/form".to_string(),
         action,
         storage,
+        storage_versions,
     };
     let expected_bytes = &[
-        161, 102, 65, 99, 116, 105, 111, 110, 163, 100, 112, 97, 116, 104, 101, 47, 102, 111, 114,
+        161, 102, 65, 99, 116, 105, 111, 110, 164, 100, 112, 97, 116, 104, 101, 47, 102, 111, 114,
         109, 102, 97, 99, 116, 105, 111, 110, 163, 100, 110, 97, 109, 101, 102, 115, 117, 98, 109,
         105, 116, 100, 97, 114, 103, 115, 160, 100, 107, 101, 121, 115, 128, 103, 115, 116, 111,
         114, 97, 103, 101, 161, 101, 102, 105, 101, 108, 100, 161, 102, 83, 116, 114, 105, 110,
-        103, 100, 100, 97, 116, 97,
+        103, 100, 100, 97, 116, 97, 112, 115, 116, 111, 114, 97, 103, 101, 95, 118, 101, 114, 115,
+        105, 111, 110, 115, 161, 101, 102, 105, 101, 108, 100, 3,
     ];
     assert_cbor_encoding(&message, expected_bytes);
 }

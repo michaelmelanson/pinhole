@@ -185,6 +185,15 @@ impl From<HashMap<String, StateValue>> for StateValue {
 
 pub type StateMap = HashMap<String, StateValue>;
 
+/// Monotonically increasing version number for a single storage key, used
+/// for optimistic concurrency: a `Store` write is only applied if its
+/// version is strictly greater than what's already known for that key.
+pub type StateVersion = u64;
+
+/// Per-key version numbers, sent alongside a `StateMap` so the receiving
+/// side can detect stale or conflicting writes.
+pub type VersionMap = HashMap<String, StateVersion>;
+
 #[cfg(test)]
 mod tests {
     use super::*;

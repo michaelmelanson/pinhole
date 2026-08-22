@@ -18,6 +18,10 @@ impl Capability {
 
     /// Core protocol capability (version 1)
     pub const CORE_V1: &'static str = "pinhole:core:v1";
+
+    /// Per-key state version numbers on storage/Store messages, for
+    /// optimistic concurrency and stale-write detection
+    pub const STATE_VERSIONING: &'static str = "pinhole:state:versioning";
 }
 
 impl From<&str> for Capability {
@@ -100,6 +104,7 @@ impl Default for CapabilitySet {
 pub fn supported_capabilities() -> CapabilitySet {
     let mut caps = CapabilitySet::new();
     caps.add(Capability::CORE_V1);
+    caps.add(Capability::STATE_VERSIONING);
     caps
 }
 
@@ -136,6 +141,7 @@ mod tests {
     fn test_supported_capabilities() {
         let caps = supported_capabilities();
         assert!(caps.contains(Capability::CORE_V1));
-        assert_eq!(caps.len(), 1);
+        assert!(caps.contains(Capability::STATE_VERSIONING));
+        assert_eq!(caps.len(), 2);
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     action::Action,
     capabilities::CapabilitySet,
     document::Document,
-    storage::{StateMap, StateValue, StorageScope},
+    storage::{StateMap, StateValue, StateVersion, StorageScope, VersionMap},
 };
 
 /// Error codes for server-to-client error messages
@@ -81,11 +81,17 @@ pub enum ClientToServerMessage {
     Load {
         path: String,
         storage: StateMap,
+        /// Per-key versions for `storage`, used by the server to detect
+        /// which prior version each `Store` write supersedes.
+        storage_versions: VersionMap,
     },
     Action {
         path: String,
         action: Action,
         storage: StateMap,
+        /// Per-key versions for `storage`, used by the server to detect
+        /// which prior version each `Store` write supersedes.
+        storage_versions: VersionMap,
     },
 }
 
@@ -105,6 +111,11 @@ pub enum ServerToClientMessage {
         scope: StorageScope,
         key: String,
         value: StateValue,
+        /// The version this write represents. The receiving client only
+        /// applies the write if this is strictly greater than the version
+        /// it already has for `key`, to guard against stale/conflicting
+        /// writes racing each other.
+        version: StateVersion,
     },
     Error {
         code: ErrorCode,

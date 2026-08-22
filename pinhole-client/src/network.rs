@@ -176,7 +176,12 @@ async fn session_loop(
             storage_manager.navigate_to(path.clone());
             storage_manager.clear_local_storage();
             let storage = storage_manager.get_all_storage();
-            let request = ClientToServerMessage::Load { path, storage };
+            let storage_versions = storage_manager.get_all_versions();
+            let request = ClientToServerMessage::Load {
+                path,
+                storage,
+                storage_versions,
+            };
             last_request = Some(request.clone());
             send_message_to_server(&mut stream, request).await?;
         }
@@ -189,7 +194,13 @@ async fn session_loop(
                     match command {
                         NetworkSessionCommand::Action { action, storage } => {
                             if let Some(path) = current_path.clone() {
-                                let request = ClientToServerMessage::Action { path, action, storage };
+                                let storage_versions = storage_manager.get_all_versions();
+                                let request = ClientToServerMessage::Action {
+                                    path,
+                                    action,
+                                    storage,
+                                    storage_versions,
+                                };
                                 last_request = Some(request.clone());
                                 send_message_to_server(&mut stream, request).await?;
                             } else {
@@ -201,7 +212,12 @@ async fn session_loop(
                             storage_manager.navigate_to(path.clone());
                             storage_manager.clear_local_storage();
                             let storage = storage_manager.get_all_storage();
-                            let request = ClientToServerMessage::Load { path, storage };
+                            let storage_versions = storage_manager.get_all_versions();
+                            let request = ClientToServerMessage::Load {
+                                path,
+                                storage,
+                                storage_versions,
+                            };
                             last_request = Some(request.clone());
                             send_message_to_server(&mut stream, request).await?;
                         }
@@ -233,12 +249,17 @@ async fn session_loop(
                       storage_manager.navigate_to(path.clone());
                       storage_manager.clear_local_storage();
                       let storage = storage_manager.get_all_storage();
-                      let request = ClientToServerMessage::Load { path, storage };
+                      let storage_versions = storage_manager.get_all_versions();
+                      let request = ClientToServerMessage::Load {
+                        path,
+                        storage,
+                        storage_versions,
+                      };
                       last_request = Some(request.clone());
                       send_message_to_server(&mut stream, request).await?;
                     }
-                    ServerToClientMessage::Store { scope, key, value } => {
-                      if let Err(e) = storage_manager.store(scope, key, value) {
+                    ServerToClientMessage::Store { scope, key, value, version } => {
+                      if let Err(e) = storage_manager.apply_remote_store(scope, key, value, version) {
                         tracing::warn!(error = ?e, "Failed to store value");
                       }
                     }

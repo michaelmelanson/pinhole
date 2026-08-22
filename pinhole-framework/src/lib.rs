@@ -130,6 +130,7 @@ pub async fn handle_request(
             path,
             action,
             storage,
+            storage_versions,
         } => {
             tracing::debug!(
                 path = %path,
@@ -139,6 +140,7 @@ pub async fn handle_request(
             if let Some((route, params)) = application.route(path) {
                 let mut context = Context {
                     storage: storage.clone(),
+                    versions: storage_versions.clone(),
                     stream,
                     capabilities: capabilities.clone(),
                 };
@@ -157,7 +159,11 @@ pub async fn handle_request(
             }
         }
 
-        ClientToServerMessage::Load { path, storage } => {
+        ClientToServerMessage::Load {
+            path,
+            storage,
+            storage_versions: _,
+        } => {
             tracing::debug!(path = %path, "Received load");
             if let Some((route, params)) = application.route(path) {
                 match route.render(&params, storage).await {

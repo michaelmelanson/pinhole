@@ -112,6 +112,7 @@ async fn send_request_and_receive(
     let request = ClientToServerMessage::Load {
         path: path.to_string(),
         storage,
+        storage_versions: Default::default(),
     };
 
     send_message_to_server(&mut stream, request).await?;

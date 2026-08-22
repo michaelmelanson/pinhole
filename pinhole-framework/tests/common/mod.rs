@@ -7,7 +7,7 @@
 use pinhole::{Action, Application, Node};
 use pinhole_protocol::messages::{ClientToServerMessage, ErrorCode, ServerToClientMessage};
 use pinhole_protocol::network::{receive_server_message, send_message_to_server};
-use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
+use pinhole_protocol::storage::{StateMap, StateValue, StorageScope, VersionMap};
 use std::collections::HashMap;
 use std::time::Duration;
 use tempfile::NamedTempFile;
@@ -30,7 +30,10 @@ pub fn assert_store(
     expected_value: StateValue,
 ) {
     assert_eq!(messages.len(), 1);
-    let ServerToClientMessage::Store { scope, key, value } = &messages[0] else {
+    let ServerToClientMessage::Store {
+        scope, key, value, ..
+    } = &messages[0]
+    else {
         panic!("Expected Store message, got: {:?}", messages[0]);
     };
     assert_eq!(*scope, StorageScope::Session);
@@ -143,6 +146,7 @@ pub async fn send_load(
         ClientToServerMessage::Load {
             path: path.to_string(),
             storage,
+            storage_versions: VersionMap::new(),
         },
     )
     .await
@@ -156,12 +160,25 @@ pub async fn send_action(
     action: Action,
     storage: StateMap,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    send_action_with_versions(stream, path, action, storage, VersionMap::new()).await
+}
+
+/// Send an Action request to the server with explicit per-key storage
+/// versions, for exercising `Context::store()`'s version-increment behaviour
+pub async fn send_action_with_versions(
+    stream: &mut UnixStream,
+    path: &str,
+    action: Action,
+    storage: StateMap,
+    storage_versions: VersionMap,
+) -> Result<(), Box<dyn std::error::Error>> {
     send_message_to_server(
         stream,
         ClientToServerMessage::Action {
             path: path.to_string(),
             action,
             storage,
+            storage_versions,
         },
     )
     .await

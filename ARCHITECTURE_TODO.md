@@ -41,10 +41,18 @@ Architectural improvements identified in October 2025 assessment.
   - Comprehensive test coverage
   - Location: `pinhole-protocol/src/storage.rs`
 
-- [ ] **State Synchronisation**
-  - Add state version numbers for optimistic concurrency
-  - Implement conflict detection
-  - Location: `pinhole-client/src/network.rs`
+- [x] **State Synchronisation**
+  - Added per-key `StateVersion`/`VersionMap` alongside storage on the wire
+  - `Context::store()` computes a strictly increasing version per key from
+    what the client sent; `StorageManager::apply_remote_store()` drops any
+    `Store` whose version isn't strictly greater than what's already known,
+    guarding against the double-action race (two in-flight requests built
+    from the same stale snapshot)
+  - `Route`/`Context.storage` API is unchanged — `StateMap` stays plain,
+    versions are wire/StorageManager-only metadata
+  - Location: `pinhole-protocol/src/storage.rs`, `messages.rs`,
+    `pinhole-client/src/storage.rs`, `network.rs`,
+    `pinhole-framework/src/context.rs`, `lib.rs`
 
 - [ ] **Documentation**
   - Add module-level docs to all public modules

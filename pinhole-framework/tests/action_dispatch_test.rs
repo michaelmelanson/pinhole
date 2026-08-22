@@ -2,10 +2,13 @@
 mod common;
 
 use async_trait::async_trait;
-use common::{connect_test_client, receive_message, send_action, start_test_server};
+use common::{
+    connect_test_client, receive_message, send_action, send_action_with_versions,
+    start_test_server,
+};
 use pinhole::{Action, Application, Context, Document, Node, Params, Render, Route, TextProps};
 use pinhole_protocol::messages::{ErrorCode, ServerToClientMessage};
-use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
+use pinhole_protocol::storage::{StateMap, StateValue, StorageScope, VersionMap};
 use std::collections::HashMap;
 
 // Test application
@@ -230,6 +233,14 @@ impl Route for StorageRoute {
                     .store(StorageScope::Persistent, "key3", "value3")
                     .await?;
             }
+            "store_twice" => {
+                context
+                    .store(StorageScope::Session, "repeat_key", "first")
+                    .await?;
+                context
+                    .store(StorageScope::Session, "repeat_key", "second")
+                    .await?;
+            }
             _ => {}
         }
         Ok(())
@@ -418,7 +429,9 @@ async fn test_action_with_single_argument() {
 
     // Should get Store message echoing back our argument
     match message {
-        ServerToClientMessage::Store { scope, key, value } => {
+        ServerToClientMessage::Store {
+            scope, key, value, ..
+        } => {
             assert_eq!(scope, StorageScope::Session);
             assert_eq!(key, "test_key");
             assert_eq!(value, StateValue::String("test_value".to_string()));
@@ -586,7 +599,9 @@ async fn test_action_with_storage_scopes() {
         .await
         .expect("Failed to receive");
     match message {
-        ServerToClientMessage::Store { scope, key, value } => {
+        ServerToClientMessage::Store {
+            scope, key, value, ..
+        } => {
             assert_eq!(scope, StorageScope::Session);
             assert_eq!(key, "session_key");
             assert_eq!(value, StateValue::String("session_value".to_string()));
@@ -604,13 +619,79 @@ async fn test_action_with_storage_scopes() {
         .await
         .expect("Failed to receive");
     match message {
-        ServerToClientMessage::Store { scope, key, value } => {
+        ServerToClientMessage::Store {
+            scope, key, value, ..
+        } => {
             assert_eq!(scope, StorageScope::Persistent);
             assert_eq!(key, "persistent_key");
             assert_eq!(value, StateValue::String("persistent_value".to_string()));
         }
         _ => panic!("Expected Store message"),
     }
+}
+
+/// `Context::store()` must compute a strictly increasing version each time
+/// it's called for the same key within one action handler, so the client
+/// can tell the second write supersedes the first.
+#[tokio::test]
+async fn test_context_store_increments_version_within_one_action() {
+    let socket_path = start_test_server(ActionTestApp);
+    let mut client = connect_test_client(&socket_path).await;
+
+    let action = Action::new("store_twice", HashMap::new(), vec![]);
+    send_action(&mut client, "/storage", action, StateMap::new())
+        .await
+        .expect("Failed to send action");
+
+    let first = receive_message(&mut client)
+        .await
+        .expect("Failed to receive first Store");
+    let ServerToClientMessage::Store { key, version, .. } = first else {
+        panic!("Expected Store message, got: {:?}", first);
+    };
+    assert_eq!(key, "repeat_key");
+    assert_eq!(version, 1);
+
+    let second = receive_message(&mut client)
+        .await
+        .expect("Failed to receive second Store");
+    let ServerToClientMessage::Store { key, version, .. } = second else {
+        panic!("Expected Store message, got: {:?}", second);
+    };
+    assert_eq!(key, "repeat_key");
+    assert_eq!(version, 2);
+}
+
+/// `Context::store()` must base the new version on the version the client
+/// sent for that key, not always start from scratch, so a client resuming
+/// with prior storage versions gets a `Store` reply it can validate.
+#[tokio::test]
+async fn test_context_store_continues_from_client_supplied_version() {
+    let socket_path = start_test_server(ActionTestApp);
+    let mut client = connect_test_client(&socket_path).await;
+
+    let action = Action::new("store_session", HashMap::new(), vec![]);
+    let mut storage_versions = VersionMap::new();
+    storage_versions.insert("session_key".to_string(), 5);
+
+    send_action_with_versions(
+        &mut client,
+        "/storage",
+        action,
+        StateMap::new(),
+        storage_versions,
+    )
+    .await
+    .expect("Failed to send action");
+
+    let message = receive_message(&mut client)
+        .await
+        .expect("Failed to receive");
+    let ServerToClientMessage::Store { key, version, .. } = message else {
+        panic!("Expected Store message, got: {:?}", message);
+    };
+    assert_eq!(key, "session_key");
+    assert_eq!(version, 6);
 }
 
 #[tokio::test]

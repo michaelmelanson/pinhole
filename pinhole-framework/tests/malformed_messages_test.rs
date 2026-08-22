@@ -270,6 +270,7 @@ async fn test_message_at_exact_size_limit() {
     let request = ClientToServerMessage::Load {
         path: "/hello".to_string(),
         storage: StateMap::new(),
+        storage_versions: Default::default(),
     };
 
     let bytes = serde_cbor::to_vec(&request).unwrap();
