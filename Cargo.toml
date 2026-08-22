@@ -5,8 +5,8 @@ members = [
   'pinhole-client',
   'pinhole-framework',
 
-  'todomvc-example',
-  'styling-showcase-example'
+  'examples/todomvc-example',
+  'examples/styling-showcase-example'
 ]
 
 [workspace.dependencies]
