@@ -203,11 +203,11 @@ mod tests {
     #[test]
     fn test_boolean_accessors() {
         let val = StateValue::Boolean(true);
-        assert_eq!(val.boolean(), true);
+        assert!(val.boolean());
         assert_eq!(val.as_boolean(), Some(true));
 
         let val = StateValue::String("test".to_string());
-        assert_eq!(val.boolean(), false);
+        assert!(!val.boolean());
         assert_eq!(val.as_boolean(), None);
     }
 

@@ -1,9 +1,12 @@
 use directories::ProjectDirs;
 
 use pinhole_protocol::storage::{StateMap, StateValue, StorageScope};
-use serde_json;
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fs, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -124,7 +127,7 @@ impl StorageManager {
         format!("{}-{}", sanitised, hash_hex)
     }
 
-    fn load_persistent_storage(storage_dir: &PathBuf, origin: &str) -> Result<StateMap> {
+    fn load_persistent_storage(storage_dir: &Path, origin: &str) -> Result<StateMap> {
         let file_path = storage_dir.join(format!(
             "{}.json",
             origin

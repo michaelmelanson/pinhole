@@ -342,7 +342,7 @@ fn test_state_value_types() {
 
     // Test Boolean variant
     let bool_val = StateValue::Boolean(true);
-    assert_eq!(bool_val.boolean(), true);
+    assert!(bool_val.boolean());
 
     // Test Empty variant
     let empty_val = StateValue::Empty;

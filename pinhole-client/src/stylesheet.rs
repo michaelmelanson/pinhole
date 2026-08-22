@@ -41,7 +41,7 @@ fn convert_radius(radius: stylesheet::Length) -> iced::border::Radius {
 
 fn convert_length(length: stylesheet::Length) -> f32 {
     match length {
-        stylesheet::Length::Pixels(px) => f32::from(px),
+        stylesheet::Length::Pixels(px) => px,
     }
 }
 

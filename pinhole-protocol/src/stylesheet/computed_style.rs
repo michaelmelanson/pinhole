@@ -60,7 +60,7 @@ impl ComputedStyle {
     where
         F: Fn(&StyleRule) -> Option<T>,
     {
-        self.rules.iter().rev().find_map(|rule| matcher(rule))
+        self.rules.iter().rev().find_map(matcher)
     }
 }
 
