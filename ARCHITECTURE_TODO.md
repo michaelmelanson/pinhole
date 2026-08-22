@@ -20,11 +20,11 @@ Architectural improvements identified in October 2025 assessment.
 
 ## Priority 1 - Important
 
-- [ ] **Error Handling Granularity**
-  - Add structured error types with HTTP-like status codes
-  - Distinguish retryable vs fatal errors
-  - Support 401, 403, 429, etc. (not just 400/404/500)
-  - Location: `pinhole-protocol/src/messages.rs`, `pinhole-client/src/error.rs`
+- [x] **Error Handling Granularity**
+  - Added `Unauthorized` (401), `Forbidden` (403), `TooManyRequests` (429) to `ErrorCode`
+  - Added `ErrorCode::is_retryable()` and an HTTP-style `Display` impl (e.g. "429 Too Many Requests")
+  - Client now auto-retries the in-flight request with a fixed backoff on a retryable error, instead of surfacing it to the UI
+  - Location: `pinhole-protocol/src/messages.rs`, `pinhole-client/src/network.rs`
 
 - [x] **Route Matching**
   - Implemented path parameter extraction with `:param` syntax (`/resources/:id/subpage`)

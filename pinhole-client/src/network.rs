@@ -31,8 +31,13 @@ pub enum NetworkSessionCommand {
 #[derive(Debug, Clone)]
 pub enum NetworkSessionEvent {
     DocumentUpdated(Document),
-    ServerError { code: u16, message: String },
+    ServerError { code: ErrorCode, message: String },
 }
+
+/// How long to wait before retrying a request after a retryable server error
+/// (currently just `TooManyRequests`). Fixed rather than server-supplied since
+/// the protocol has no Retry-After equivalent.
+const RETRYABLE_ERROR_BACKOFF: Duration = Duration::from_secs(1);
 
 static NEXT_SESSION_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -106,6 +111,9 @@ async fn session_loop(
     event_sender: BroadcastSender<NetworkSessionEvent>,
 ) -> Result<()> {
     let mut current_path: Option<String> = None;
+    // The last Action/Load sent to the server, kept so a retryable server error
+    // can be resolved by resending it rather than surfacing it to the UI.
+    let mut last_request: Option<ClientToServerMessage> = None;
     let mut storage_manager = StorageManager::new(address.clone())
         .map_err(|e| NetworkError::StorageError(e.to_string()))?;
 
@@ -168,8 +176,9 @@ async fn session_loop(
             storage_manager.navigate_to(path.clone());
             storage_manager.clear_local_storage();
             let storage = storage_manager.get_all_storage();
-            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage })
-                .await?;
+            let request = ClientToServerMessage::Load { path, storage };
+            last_request = Some(request.clone());
+            send_message_to_server(&mut stream, request).await?;
         }
 
         'connection: loop {
@@ -180,7 +189,9 @@ async fn session_loop(
                     match command {
                         NetworkSessionCommand::Action { action, storage } => {
                             if let Some(path) = current_path.clone() {
-                                send_message_to_server(&mut stream, ClientToServerMessage::Action { path, action, storage }).await?;
+                                let request = ClientToServerMessage::Action { path, action, storage };
+                                last_request = Some(request.clone());
+                                send_message_to_server(&mut stream, request).await?;
                             } else {
                                 tracing::warn!("Attempted to fire action without a path set, ignoring");
                             }
@@ -190,7 +201,9 @@ async fn session_loop(
                             storage_manager.navigate_to(path.clone());
                             storage_manager.clear_local_storage();
                             let storage = storage_manager.get_all_storage();
-                            send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+                            let request = ClientToServerMessage::Load { path, storage };
+                            last_request = Some(request.clone());
+                            send_message_to_server(&mut stream, request).await?;
                         }
                     }
                 } else {
@@ -220,7 +233,9 @@ async fn session_loop(
                       storage_manager.navigate_to(path.clone());
                       storage_manager.clear_local_storage();
                       let storage = storage_manager.get_all_storage();
-                      send_message_to_server(&mut stream, ClientToServerMessage::Load { path, storage }).await?;
+                      let request = ClientToServerMessage::Load { path, storage };
+                      last_request = Some(request.clone());
+                      send_message_to_server(&mut stream, request).await?;
                     }
                     ServerToClientMessage::Store { scope, key, value } => {
                       if let Err(e) = storage_manager.store(scope, key, value) {
@@ -243,8 +258,24 @@ async fn session_loop(
                         )));
                       }
 
+                      // Retryable errors (currently just TooManyRequests) are resolved
+                      // transparently by resending the request after a backoff, rather
+                      // than surfacing them to the UI.
+                      if code.is_retryable() {
+                        if let Some(request) = last_request.clone() {
+                          tracing::warn!(
+                            code = %code,
+                            backoff_ms = RETRYABLE_ERROR_BACKOFF.as_millis() as u64,
+                            "Retryable server error, resending request after backoff"
+                          );
+                          tokio::time::sleep(RETRYABLE_ERROR_BACKOFF).await;
+                          send_message_to_server(&mut stream, request).await?;
+                          continue 'connection;
+                        }
+                      }
+
                       if let Err(e) = event_sender.send(NetworkSessionEvent::ServerError {
-                        code: code.as_u16(),
+                        code,
                         message,
                       }) {
                         tracing::error!(error = ?e, "UI thread closed, shutting down");

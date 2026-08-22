@@ -97,8 +97,8 @@ impl Pinhole {
                     self.error_message = None; // Clear any error when new document loads
                 }
                 NetworkSessionEvent::ServerError { code, message } => {
-                    tracing::error!(code = code, message = %message, "Server error");
-                    self.error_message = Some(format!("Error {}: {}", code, message));
+                    tracing::error!(code = code.as_u16(), message = %message, "Server error");
+                    self.error_message = Some(format!("{}: {}", code, message));
                 }
             },
             PinholeMessage::PerformAction(action) => {
