@@ -75,7 +75,7 @@ Architectural improvements identified in October 2025 assessment.
   - Use `HashMap` or trie for route lookup
   - Implement message pooling with `bytes::BytesMut`
   - Batch storage writes (flush every 100ms)
-  - Cache serialised documents with ETag-like versioning
+  - Cache serialised documents with ETag-like versioning (e.g. Rails style freshness declarations)
   - Add benchmarks to track regressions
 
 ## Priority 3 - Future
