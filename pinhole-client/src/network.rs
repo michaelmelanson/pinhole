@@ -34,10 +34,22 @@ pub enum NetworkSessionEvent {
     ServerError { code: u16, message: String },
 }
 
+static NEXT_SESSION_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 #[derive(Clone)]
 pub struct NetworkSession {
+    // Identifies this logical session regardless of how many times it's cloned —
+    // used by `iced::Subscription::run_with` in main.rs to recognize the
+    // subscription stream as unchanged between `view` calls.
+    id: u64,
     command_sender: UnboundedSender<NetworkSessionCommand>,
     event_sender: BroadcastSender<NetworkSessionEvent>,
+}
+
+impl std::hash::Hash for NetworkSession {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
 }
 
 impl NetworkSession {
@@ -53,6 +65,7 @@ impl NetworkSession {
         ));
 
         NetworkSession {
+            id: NEXT_SESSION_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             command_sender,
             event_sender,
         }
